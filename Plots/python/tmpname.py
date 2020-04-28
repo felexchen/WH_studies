@@ -395,8 +395,8 @@ plotting.draw(
     scaling = {1:0},
     ratio = {'histos': [(0, 1)], 'texY': 'x / FullSim'},
 )
- 
-####################
+
+##################################################
 # muon energy fraction b jet | pt > 400
 
 b_muon_EF_400      = fastSim.get1DHistoFromDraw('Jet_muEF', [20,0,1], weightString='genWeight', selectionString=bPresel400, addOverFlowBin='upper')
@@ -439,7 +439,7 @@ plotting.draw(
     ratio = {'histos': [(0, 1)], 'texY': 'x / FullSim'},
 )
  
-##################################################
+####################
 # muon energy fraction ISR | pt > 400
 
 ISR_muon_EF_400      = fastSim.get1DHistoFromDraw('Jet_muEF', [20,0,1], weightString='genWeight', selectionString=ISRPresel400, addOverFlowBin='upper')
