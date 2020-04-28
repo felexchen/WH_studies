@@ -50,28 +50,8 @@ bPresel30    = 'Jet_pt>30&&abs(Jet_eta)<2.4&&Jet_jetId&&Jet_hadronFlavour==5&&Je
 ISRPresel30  = 'Jet_pt>30&&abs(Jet_eta)<2.4&&Jet_jetId&&!(Jet_hadronFlavour==5)&&Jet_btagDeepB<0.4941'
 ##################################################
 # plot path
-plot_path = './felex_tmp/'
+plot_path = './tmp_plots/'
 
-##################################################
-# charged_fraction      = fastSim.get1DHistoFromDraw('Jet_chFPV1EF', [20,0,1], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
-# charged_fraction_full = fullSim.get1DHistoFromDraw('Jet_chFPV1EF', [20,0,1], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
-# 
-# charged_fraction.legendText      = 'FastSim'
-# charged_fraction_full.legendText = 'FullSim'
-# 
-# ## styles
-# charged_fraction.style      = styles.lineStyle(ROOT.kGreen+1,   width=2, errors=True)
-# charged_fraction_full.style = styles.lineStyle(ROOT.kBlue+1,   width=2, errors=True)
-# 
-# # do actual plotting
-# plotting.draw(
-#     Plot.fromHisto(name = 'charged fraction', histos = [ [charged_fraction], [charged_fraction_full] ], texX = "charged fraction", texY = "a.u."),
-#     plot_directory = plot_path,
-#     logX = False, logY = False, sorting = False,
-#     scaling = {1:0},
-#     ratio = {'histos': [(0, 1)], 'texY': 'x / FullSim'},
-# )
-  
 ##################################################
 # charged electromagnetic energy fraction b jet | pt > 400
 
@@ -502,74 +482,4 @@ plotting.draw(
     ratio = {'histos': [(0, 1)], 'texY': 'x / FullSim'},
 )
  
-##################################################
-# # Neutral electromagnetic energy fraction
-# 
-# neutral_em_EF      = fastSim.get1DHistoFromDraw('Jet_neEmEF', [20,0,1], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
-# neutral_em_EF_full = fullSim.get1DHistoFromDraw('Jet_neEmEF', [20,0,1], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
-# 
-# neutral_em_EF.legendText      = 'FastSim'
-# neutral_em_EF_full.legendText = 'FullSim'
-# 
-# ## styles
-# neutral_em_EF.style      = styles.lineStyle(ROOT.kGreen+1,   width=2, errors=True)
-# neutral_em_EF_full.style = styles.lineStyle(ROOT.kBlue+1,   width=2, errors=True)
-# 
-# # do actual plotting
-# plotting.draw(
-#     Plot.fromHisto(name = 'neutral em energy fraction', histos = [ [neutral_em_EF], [neutral_em_EF_full] ], texX = "neutral em energy fraction", texY = "a.u."),
-#     plot_directory = plot_path,
-#     logX = False, logY = True, sorting = False,
-#     scaling = {1:0},
-#     ratio = {'histos': [(0, 1)], 'texY': 'x / FullSim'},
-# )
-#  
-# ##################################################
-# # Neutral hadron energy fraction
-# 
-# neutral_hadron_EF      = fastSim.get1DHistoFromDraw('Jet_neHEF', [20,0,1], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
-# neutral_hadron_EF_full = fullSim.get1DHistoFromDraw('Jet_neHEF', [20,0,1], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
-# 
-# neutral_hadron_EF.legendText      = 'FastSim'
-# neutral_hadron_EF_full.legendText = 'FullSim'
-# 
-# ## styles
-# neutral_hadron_EF.style      = styles.lineStyle(ROOT.kGreen+1,   width=2, errors=True)
-# neutral_hadron_EF_full.style = styles.lineStyle(ROOT.kBlue+1,   width=2, errors=True)
-# 
-# # do actual plotting
-# plotting.draw(
-#     Plot.fromHisto(name = 'neutral hadron energy fraction', histos = [ [neutral_hadron_EF], [neutral_hadron_EF_full] ], texX = "neutral hadron energy fraction", texY = "a.u."),
-#     plot_directory = plot_path,
-#     logX = False, logY = True, sorting = False,
-#     scaling = {1:0},
-#     ratio = {'histos': [(0, 1)], 'texY': 'x / FullSim'},
-# )
-#  
-##################################################
-# muon energy fraction
-# 
-# muon_EF      = fastSim.get1DHistoFromDraw('Jet_muEF', [20,0,1], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
-# muon_EF_full = fullSim.get1DHistoFromDraw('Jet_muEF', [20,0,1], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
-# 
-# muon_EF.legendText      = 'FastSim'
-# muon_EF_full.legendText = 'FullSim'
-# 
-# ## styles
-# muon_EF.style      = styles.lineStyle(ROOT.kGreen+1,   width=2, errors=True)
-# muon_EF_full.style = styles.lineStyle(ROOT.kBlue+1,   width=2, errors=True)
-# 
-# # do actual plotting
-# plotting.draw(
-#     Plot.fromHisto(name = 'muon energy fraction', histos = [ [muon_EF], [muon_EF_full] ], texX = "muon energy fraction", texY = "a.u."),
-#     plot_directory = plot_path,
-#     logX = False, logY = True, sorting = False,
-#     scaling = {1:0},
-#     ratio = {'histos': [(0, 1)], 'texY': 'x / FullSim'},
-# )
-#  
-##################################################
- 
-
-
 ##################################################
