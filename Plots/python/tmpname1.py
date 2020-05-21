@@ -19,9 +19,9 @@ fastSim      = Sample.fromFiles("FastSim",    ["/hadoop/cms/store/user/dspitzba/
 
 ##################################################
 # Apply MET filters
-fullSim.setSelectionString("Flag_goodVertices&&Flag_globalSuperTightHalo2016Filter&&Flag_HBHENoiseFilter&&Flag_HBHENoiseIsoFilter&&Flag_EcalDeadCellTriggerPrimitiveFilter&&Flag_ecalBadCalibFilter&&Flag_BadPFMuonFilter&&Flag_BadChargedCandidateFilter&&Flag_ecalBadCalibFilterV2")
+fullSim.setSelectionString("Flag_goodVertices&&Flag_globalSuperTightHalo2016Filter&&Flag_HBHENoiseFilter&&Flag_HBHENoiseIsoFilter&&Flag_EcalDeadCellTriggerPrimitiveFilter&&Flag_BadPFMuonFilter&&Flag_BadChargedCandidateFilter&&Flag_ecalBadCalibFilterV2")
 
-fastSim.setSelectionString("Flag_goodVertices&&Flag_HBHENoiseFilter&&Flag_HBHENoiseIsoFilter&&Flag_EcalDeadCellTriggerPrimitiveFilter&&Flag_ecalBadCalibFilter&&Flag_BadPFMuonFilter&&Flag_BadChargedCandidateFilter&&Flag_ecalBadCalibFilter")
+fastSim.setSelectionString("Flag_goodVertices&&Flag_HBHENoiseFilter&&Flag_HBHENoiseIsoFilter&&Flag_EcalDeadCellTriggerPrimitiveFilter&&Flag_BadPFMuonFilter&&Flag_BadChargedCandidateFilter&&Flag_ecalBadCalibFilterV2")
 
 ##################################################
 # Select events with one higgs tag (medium WP)
@@ -43,11 +43,11 @@ preselHighPt  = 'nFatJet>0&&Sum$(FatJet_pt>500&&FatJet_deepTagMD_HbbvsQCD>0.8695
 # 5 = b quarks (or non b)
 # AND
 # btag > 0.4941 for b quarks (or non b)
-bPresel400   = 'Jet_pt>400&&abs(Jet_eta)<2.4&&Jet_jetId&&Jet_hadronFlavour==5&&Jet_btagDeepB>0.4941'
-ISRPresel400 = 'Jet_pt>400&&abs(Jet_eta)<2.4&&Jet_jetId&&!(Jet_hadronFlavour==5)&&Jet_btagDeepB<0.4941'
+bPresel400   = 'Jet_pt>400&&abs(Jet_eta)<2.4&&Jet_hadronFlavour==5'
+ISRPresel400 = 'Jet_pt>400&&abs(Jet_eta)<2.4&&!(Jet_hadronFlavour==5)'
 # same as above, except pt > 30
-bPresel30    = 'Jet_pt>30&&abs(Jet_eta)<2.4&&Jet_jetId&&Jet_hadronFlavour==5&&Jet_btagDeepB>0.4941'
-ISRPresel30  = 'Jet_pt>30&&abs(Jet_eta)<2.4&&Jet_jetId&&!(Jet_hadronFlavour==5)&&Jet_btagDeepB<0.4941'
+bPresel30    = 'Jet_pt>30&&abs(Jet_eta)<2.4&&Jet_hadronFlavour==5'
+ISRPresel30  = 'Jet_pt>30&&abs(Jet_eta)<2.4&&!(Jet_hadronFlavour==5)'
 ##################################################
 # plot path
 plot_path = './tmp_plots/'

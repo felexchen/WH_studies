@@ -266,7 +266,7 @@ print "plotting full"
 histFullEff = ROOT.TH1D("histFullEff","deepTagMD_HbbvsQCD Efficiency vs pT (Full);pT [GeV];efficiency", *binningArgs)
 histFullEff.SetLineColor(ROOT.kGreen+1)
 histFullEff.SetLineWidth(2)
-histFullEff.SetMarkerStyle(10)
+histFullEff.SetMarkerStyle(1)
 # properly bin
 #histFullEff.Rebin(numberOfBins,"",binning)
 for i, e in enumerate(efficienciesFull):
@@ -277,7 +277,7 @@ for i, e in enumerate(efficienciesFull):
   histFullEff.SetBinError(i+1,e.sigma)
 fullCan = ROOT.TCanvas("fullCan","",figSizeX,figSizeY)
 fullCan.Draw()
-histFullEff.SetAxisRange(0,1,"Y")
+histFullEff.SetAxisRange(0.2,0.8,"Y")
 histFullEff.Draw()
 histFullEff.Draw("hist same")
 fullCan.SaveAs("FullHist.png")
@@ -286,7 +286,7 @@ print "plotting fast"
 histFastEff = ROOT.TH1D("histFastEff","deepTagMD_HbbvsQCD Efficiency vs pT (Fast);pT [GeV];efficiency", *binningArgs)
 histFastEff.SetLineColor(ROOT.kGreen+1)
 histFastEff.SetLineWidth(2)
-histFastEff.SetMarkerStyle(10)
+histFastEff.SetMarkerStyle(1)
 # properly bin
 #histFastEff.Rebin(numberOfBins,"",binning)
 # fill hist and set error bars
@@ -298,7 +298,7 @@ for i, e in enumerate(efficienciesFast):
   histFastEff.SetBinError(i+1,e.sigma)
 fastCan = ROOT.TCanvas("fastCan","",figSizeX,figSizeY)
 fastCan.Draw()
-histFastEff.SetAxisRange(0,1,"Y")
+histFastEff.SetAxisRange(0.2,0.8,"Y")
 histFastEff.Draw()
 histFastEff.Draw("hist same")
 fastCan.SaveAs("FastHist.png")
@@ -307,7 +307,7 @@ print "plotting Full/Fast"
 full_fast = ROOT.TH1D("full_fast","deepTagMD_HbbvsQCD Full/Fast vs pT;pT [GeV];Full/Fast", *binningArgs)
 full_fast.SetLineColor(ROOT.kGreen+1)
 full_fast.SetLineWidth(2)
-full_fast.SetMarkerStyle(10)
+full_fast.SetMarkerStyle(1)
 # properly bin
 #full_fast.Rebin(numberOfBins,"",binning)
 # fill hist and set error bars
@@ -318,10 +318,17 @@ for i, r in enumerate(ratio):
   full_fast.Fill((pt_thresholds[i+1]+pt_thresholds[i])/2, r.val)
   full_fast.SetBinError(i+1,r.sigma)
 full_fastCan = ROOT.TCanvas("full_fastCan","",figSizeX,figSizeY)
+# drawing y = 1 line
+onebin = [min(pt_thresholds),max(pt_thresholds)]
+onebinArgs = (1, array.array('d', onebin))
+one = ROOT.TH1D("","",*onebinArgs)
+one.SetBinContent(1,1)
+one.SetLineColor(ROOT.kBlack)
 full_fastCan.Draw()
 full_fast.SetAxisRange(0.8,1.2,"Y")
 full_fast.Draw()
 full_fast.Draw("hist same")
+one.Draw("hist same")
 full_fastCan.SaveAs("FulloverFastHist.png")
 
 # terminate program
