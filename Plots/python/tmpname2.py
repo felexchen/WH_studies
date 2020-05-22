@@ -19,9 +19,9 @@ fastSim      = Sample.fromFiles("FastSim",    ["/hadoop/cms/store/user/dspitzba/
 
 ##################################################
 # Apply MET filters
-fullSim.setSelectionString("Flag_goodVertices&&Flag_globalSuperTightHalo2016Filter&&Flag_HBHENoiseFilter&&Flag_HBHENoiseIsoFilter&&Flag_EcalDeadCellTriggerPrimitiveFilter&&Flag_ecalBadCalibFilter&&Flag_BadPFMuonFilter&&Flag_BadChargedCandidateFilter&&Flag_ecalBadCalibFilterV2")
+fullSim.setSelectionString("Flag_goodVertices&&Flag_globalSuperTightHalo2016Filter&&Flag_HBHENoiseFilter&&Flag_HBHENoiseIsoFilter&&Flag_EcalDeadCellTriggerPrimitiveFilter&&Flag_BadPFMuonFilter&&Flag_BadChargedCandidateFilter&&Flag_ecalBadCalibFilterV2")
 
-fastSim.setSelectionString("Flag_goodVertices&&Flag_HBHENoiseFilter&&Flag_HBHENoiseIsoFilter&&Flag_EcalDeadCellTriggerPrimitiveFilter&&Flag_ecalBadCalibFilter&&Flag_BadPFMuonFilter&&Flag_BadChargedCandidateFilter&&Flag_ecalBadCalibFilter")
+fastSim.setSelectionString("Flag_goodVertices&&Flag_HBHENoiseFilter&&Flag_HBHENoiseIsoFilter&&Flag_EcalDeadCellTriggerPrimitiveFilter&&Flag_BadPFMuonFilter&&Flag_BadChargedCandidateFilter&&Flag_ecalBadCalibFilterV2")
 
 ##################################################
 # Select events with one higgs tag (medium WP)
@@ -484,59 +484,69 @@ plot_path = './tmp_plots/'
 ##  
 ## ##################################################
 
-h_CaloMET_reco    = fastSim.get1DHistoFromDraw('CaloMET_pt',  [25,0,2000], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
-h_CaloMET_jec     = fastSim.get1DHistoFromDraw('CaloMET_pt_nom',  [25,0,2000], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
-h_CaloMET_full    = fullSim.get1DHistoFromDraw('CaloMET_pt',  [25,0,2000], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
+h_CaloMET_reco    = fastSim.get1DHistoFromDraw('CaloMET_pt',  [25,0,1000], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
+#h_CaloMET_jec     = fastSim.get1DHistoFromDraw('CaloMET_pt_nom',  [25,0,2000], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
+h_CaloMET_full    = fullSim.get1DHistoFromDraw('CaloMET_pt',  [25,0,1000], weightString='genWeight', selectionString=presel, addOverFlowBin='upper')
 
 h_CaloMET_incl_reco    = fastSim.get1DHistoFromDraw('CaloMET_pt',       [25,0,2000], weightString='genWeight', selectionString='(1)', addOverFlowBin='upper')
-h_CaloMET_incl_jec     = fastSim.get1DHistoFromDraw('CaloMET_pt_nom',   [25,0,2000], weightString='genWeight', selectionString='(1)', addOverFlowBin='upper')
+#h_CaloMET_incl_jec     = fastSim.get1DHistoFromDraw('CaloMET_pt_nom',   [25,0,2000], weightString='genWeight', selectionString='(1)', addOverFlowBin='upper')
 h_CaloMET_incl_full    = fullSim.get1DHistoFromDraw('CaloMET_pt',       [25,0,2000], weightString='genWeight', selectionString='(1)', addOverFlowBin='upper')
 
 h_CaloMET_coarse_reco    = fastSim.get1DHistoFromDraw('CaloMET_pt',       [0,125,200,300,400,600], binningIsExplicit=True, weightString='genWeight', selectionString='(1)', addOverFlowBin='upper')
-h_CaloMET_coarse_jec     = fastSim.get1DHistoFromDraw('CaloMET_pt_nom',   [0,125,200,300,400,600], binningIsExplicit=True, weightString='genWeight', selectionString='(1)', addOverFlowBin='upper')
+#h_CaloMET_coarse_jec     = fastSim.get1DHistoFromDraw('CaloMET_pt_nom',   [0,125,200,300,400,600], binningIsExplicit=True, weightString='genWeight', selectionString='(1)', addOverFlowBin='upper')
 h_CaloMET_coarse_full    = fullSim.get1DHistoFromDraw('CaloMET_pt',       [0,125,200,300,400,600], binningIsExplicit=True, weightString='genWeight', selectionString='(1)', addOverFlowBin='upper')
 
 h_CaloMET_reco.legendText = 'FastSim'
-h_CaloMET_jec.legendText  = 'FastSim, JEC reapplied'
+#h_CaloMET_jec.legendText  = 'FastSim, JEC reapplied'
 h_CaloMET_full.legendText = 'FullSim'
 h_CaloMET_reco.style      = styles.lineStyle(ROOT.kGreen+1,   width=2, errors=True)
-h_CaloMET_jec.style       = styles.lineStyle(ROOT.kRed+1,   width=2, errors=True)
+#h_CaloMET_jec.style       = styles.lineStyle(ROOT.kRed+1,   width=2, errors=True)
 h_CaloMET_full.style      = styles.lineStyle(ROOT.kBlue+1,    width=2, errors=True)
 
 h_CaloMET_incl_reco.legendText = 'FastSim'
-h_CaloMET_incl_jec.legendText  = 'FastSim, JEC reapplied'
+#h_CaloMET_incl_jec.legendText  = 'FastSim, JEC reapplied'
 h_CaloMET_incl_full.legendText = 'FullSim'
 h_CaloMET_incl_reco.style      = styles.lineStyle(ROOT.kGreen+1,   width=2, errors=True)
-h_CaloMET_incl_jec.style       = styles.lineStyle(ROOT.kRed+1,   width=2, errors=True)
+#h_CaloMET_incl_jec.style       = styles.lineStyle(ROOT.kRed+1,   width=2, errors=True)
 h_CaloMET_incl_full.style      = styles.lineStyle(ROOT.kBlue+1,    width=2, errors=True)
 
 h_CaloMET_coarse_reco.legendText = 'FastSim'
-h_CaloMET_coarse_jec.legendText  = 'FastSim, JEC reapplied'
+#h_CaloMET_coarse_jec.legendText  = 'FastSim, JEC reapplied'
 h_CaloMET_coarse_full.legendText = 'FullSim'
 h_CaloMET_coarse_reco.style      = styles.lineStyle(ROOT.kGreen+1,   width=2, errors=True)
-h_CaloMET_coarse_jec.style       = styles.lineStyle(ROOT.kRed+1,   width=2, errors=True)
+#h_CaloMET_coarse_jec.style       = styles.lineStyle(ROOT.kRed+1,   width=2, errors=True)
 h_CaloMET_coarse_full.style      = styles.lineStyle(ROOT.kBlue+1,    width=2, errors=True)
 
 plotting.draw(
-    Plot.fromHisto(name = 'CaloMET_pt', histos = [ [h_CaloMET_reco], [h_CaloMET_jec], [h_CaloMET_full] ], texX = "p_{T}^{miss} (GeV)", texY = "a.u."),
+    Plot.fromHisto(name = 'CaloMET_pt', histos = [ [h_CaloMET_reco], [h_CaloMET_full] ], texX = "Calo p_{T}^{miss} (GeV)", texY = "a.u."),
     plot_directory = plot_path,
     logX = False, logY = True, sorting = False,
-    scaling = {1:0, 2:0},
-    ratio = {'histos': [(0,2), (1,2)], 'texY': 'x / FullSim'},
+    scaling = {1:0},#, 2:0},
+    ratio = {'histos': [(0, 1)], 'texY': 'x / FullSim'},
 )
 
 plotting.draw(
-    Plot.fromHisto(name = 'CaloMET_pt_incl', histos = [ [h_CaloMET_incl_reco], [h_CaloMET_incl_jec], [h_CaloMET_incl_full] ], texX = "p_{T}^{miss} (GeV)", texY = "a.u."),
+    Plot.fromHisto(name = 'CaloMET_pt_incl', histos = [ [h_CaloMET_incl_reco], 
+                                                        #[h_CaloMET_incl_jec], 
+                                                        [h_CaloMET_incl_full] ], texX = "Calo p_{T}^{miss} incl (GeV)", texY = "a.u."),
     plot_directory = plot_path,
     logX = False, logY = True, sorting = False,
-    scaling = {1:0, 2:0},
-    ratio = {'histos': [(0,2), (1,2)], 'texY': 'x / FullSim'},
+    scaling = {1:0},#, 2:0},
+    ratio = {'histos': [(0,1)
+                        #(0,2), 
+                        #(1,2)
+                        ], 'texY': 'x / FullSim'},
 )
 
 plotting.draw(
-    Plot.fromHisto(name = 'CaloMET_pt_coarse', histos = [ [h_CaloMET_coarse_reco], [h_CaloMET_coarse_jec], [h_CaloMET_coarse_full] ], texX = "p_{T}^{miss} (GeV)", texY = "a.u."),
+    Plot.fromHisto(name = 'CaloMET_pt_coarse', histos = [ [h_CaloMET_coarse_reco], 
+                                                          #[h_CaloMET_coarse_jec], 
+                                                          [h_CaloMET_coarse_full] ], texX = "Calo p_{T}^{miss} coarse (GeV)", texY = "a.u."),
     plot_directory = plot_path,
     logX = False, logY = True, sorting = False,
-    scaling = {1:0, 2:0},
-    ratio = {'histos': [(0,2), (1,2)], 'texY': 'x / FullSim'},
+    scaling = {1:0},#, 2:0},
+    ratio = {'histos': [(0,1),
+                        #(0,2), 
+                        #(1,2)
+                        ], 'texY': 'x / FullSim'},
 )
