@@ -110,36 +110,76 @@ class TaggerAnalysis(Module):
         subjets     = Collection(event, "SubJet")
         fatjets     = Collection(event, "FatJet")
         genparts    = Collection(event, "GenPart")
+#        for i in range(len(subjets)): print i
+#        # filter out all the Higgs bosons from the generated particles
+#        # 13 = last copy
+#        # 25 = higgs
+#        Higgs = [ p for p in genparts if (abs(p.pdgId)==25 and hasBit(p.statusFlags,13) ) ] # last copy Ws
+#
+#        # there should only be on e.
+#        if len(Higgs)>1:
+#            print "Found more than 1 Higgs. Please check!"
+#            return False
+#
+#        nFatJets = len(fatjets)
+#
+#        # only measure if at least one Higgs boson was found in the generated particles
+#        nHiggsInFatJet = 0
+#
+#        if len(Higgs)>0:
+#            # loop over all FatJets
+#            for fatjet in fatjets:
+#                # deltaR matching of the fatjet and the higgs boson
+#                if self.deltaR(fatjet, Higgs[0]) < 0.4:
+#                    # that speaks for itself
+#                    nHiggsInFatJet += 1
+#                    self.h_FatJet_pt_all.Fill(fatjet.pt)
+#                    if getattr(fatjet, self.tagger) > self.htagWP:
+#                        self.h_FatJet_pt_pass.Fill(fatjet.pt)
+#        
+#        if nHiggsInFatJet>1:
+#            print "More than one FatJet with Higgs boson deltaR match. Weird -> please check!"
+        #%%%%%%%%%%%%%%%%%%%%
+        # AK4 jets
+        jets = Collection(event, "Jet")
+        # Loop over all AK8 jets, ie FatJets    
+        for fatjet in fatjets:
+          # increment for every b-tagged AK4 jet overlapped with the current AK8 jet
+          nAK4inFatJet = 0
 
-        # filter out all the Higgs bosons from the generated particles
-        # 13 = last copy
-        # 25 = higgs
-        Higgs = [ p for p in genparts if (abs(p.pdgId)==25 and hasBit(p.statusFlags,13) ) ] # last copy Ws
+          # using regular jet collection
+          # Loop over all AK4 jets
+#          for AK4 in jets:
+#            # only look at b-tagged AK4 jets
+#            if AK4.btagDeepB > self.btagWP:
+#              # b-tagger only works for pt > 30 GeV and |eta| < 2.4
+#              if((AK4.pt > 30) and (abs(AK4.eta) < 2.4)):
+#                # Look for one or two b-tagged AK4 jets, ie an overlap between an AK4 jet and our AK8 jet
+#                if self.deltaR(fatjet, AK4) < 0.4:
+#                  nAK4inFatJet += 1
+          
+          # using subjet collection
+          id1 = fatjet.subJetIdx1
+          id2 = fatjet.subJetIdx2
+          if id1 > -1:
+            subjet1 = subjets[id1]
+            if subjet1.pt > 30 and abs(subjet1.eta) < 2.4 and subjet1.btagDeepB > self.btagWP:
+              nAK4inFatJet += 1
+          if id2 > -1:
+            subjet2 = subjets[id2]
+            if subjet1.pt > 30 and abs(subjet1.eta) < 2.4 and subjet1.btagDeepB > self.btagWP:
+              nAK4inFatJet += 1
 
-        # there should only be one.
-        if len(Higgs)>1:
-            print "Found more than 1 Higgs. Please check!"
-            return False
+          # If we had a match, this contributes to our efficiency
+          if nAK4inFatJet == 1 or nAK4inFatJet == 2:
+            self.h_FatJet_pt_all.Fill(fatjet.pt)
+            if getattr(fatjet, self.tagger) > self.btagWP:
+              self.h_FatJet_pt_pass.Fill(fatjet.pt)
 
-        nFatJets = len(fatjets)
-
-        # only measure if at least one Higgs boson was found in the generated particles
-        nHiggsInFatJet = 0
-
-        if len(Higgs)>0:
-            # loop over all FatJets
-            for fatjet in fatjets:
-                # deltaR matching of the fatjet and the higgs boson
-                if self.deltaR(fatjet, Higgs[0]) < 0.4:
-                    # that speaks for itself
-                    nHiggsInFatJet += 1
-                    self.h_FatJet_pt_all.Fill(fatjet.pt)
-                    if getattr(fatjet, self.tagger) > self.htagWP:
-                        self.h_FatJet_pt_pass.Fill(fatjet.pt)
-        
-        if nHiggsInFatJet>1:
-            print "More than one FatJet with Higgs boson deltaR match. Weird -> please check!"
-
+          # warning for more than two overlaps
+          if nAK4inFatJet > 2:
+            print "More than two AK4 jets overlapping with FatJet!"
+#%%%%%%%%%%%%%%%%%%%%
         return True
 
     def endJob(self):
@@ -232,7 +272,8 @@ if __name__ == "__main__":
     # get the efficiencies into a list, and symmetrize the uncertainties
     efficienciesFast    = [ uf(effFast.GetEfficiency(i+1), (effFast.GetEfficiencyErrorUp(i+1)+effFast.GetEfficiencyErrorLow(i+1))/2) for i in range(len(pt_thresholds)) ] # root bin numbers start with 1 (0 is the underflow bin)
     efficienciesFull    = [ uf(effFull.GetEfficiency(i+1), (effFull.GetEfficiencyErrorUp(i+1)+effFull.GetEfficiencyErrorLow(i+1))/2) for i in range(len(pt_thresholds)) ] # root bin numbers start with 1 (0 is the underflow bin)
-    ratio = [ uf(effFull.GetEfficiency(i+1), (effFull.GetEfficiencyErrorUp(i+1)+effFull.GetEfficiencyErrorLow(i+1))/2)/uf(effFast.GetEfficiency(i+1), (effFast.GetEfficiencyErrorUp(i+1)+effFast.GetEfficiencyErrorLow(i+1))/2) for i in range(len(pt_thresholds)) ] 
+    # len - 1 ignores >2000, which happens to be 0 (avoiding division by zero)
+    ratio = [ uf(effFull.GetEfficiency(i+1), (effFull.GetEfficiencyErrorUp(i+1)+effFull.GetEfficiencyErrorLow(i+1))/2)/uf(effFast.GetEfficiency(i+1), (effFast.GetEfficiencyErrorUp(i+1)+effFast.GetEfficiencyErrorLow(i+1))/2) for i in range(len(pt_thresholds)-1) ] 
     
     bin_str = [ "%s-%s"%(pt_thresholds[i], pt_thresholds[i+1]) for i in range(len(pt_thresholds)) if i<len(pt_thresholds)-1 ] + ['>2000'] # also use overflow
 
@@ -277,7 +318,7 @@ for i, e in enumerate(efficienciesFull):
   histFullEff.SetBinError(i+1,e.sigma)
 fullCan = ROOT.TCanvas("fullCan","",figSizeX,figSizeY)
 fullCan.Draw()
-histFullEff.SetAxisRange(0.2,0.8,"Y")
+#histFullEff.SetAxisRange(0.2,0.8,"Y")
 histFullEff.Draw()
 histFullEff.Draw("hist same")
 fullCan.SaveAs("FullHist.png")
@@ -298,7 +339,7 @@ for i, e in enumerate(efficienciesFast):
   histFastEff.SetBinError(i+1,e.sigma)
 fastCan = ROOT.TCanvas("fastCan","",figSizeX,figSizeY)
 fastCan.Draw()
-histFastEff.SetAxisRange(0.2,0.8,"Y")
+#histFastEff.SetAxisRange(0.2,0.8,"Y")
 histFastEff.Draw()
 histFastEff.Draw("hist same")
 fastCan.SaveAs("FastHist.png")
@@ -312,8 +353,9 @@ full_fast.SetMarkerStyle(1)
 #full_fast.Rebin(numberOfBins,"",binning)
 # fill hist and set error bars
 for i, r in enumerate(ratio):
-  if(i == (len(ratio)-1)):
-    break # don't want > 2000
+#  if(i == (len(ratio)-1)):
+#    break # don't want > 2000
+  # The two statements above no longer apply since I already took out len-1 up at the definition of ratio
   print((pt_thresholds[i+1] + pt_thresholds[i])/2)
   full_fast.Fill((pt_thresholds[i+1]+pt_thresholds[i])/2, r.val)
   full_fast.SetBinError(i+1,r.sigma)
