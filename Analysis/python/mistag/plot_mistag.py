@@ -1,119 +1,127 @@
-import sys
 import ROOT
-import array
+import sys
+from optparse import OptionParser
 import fnmatch
+import array
+import numpy as np
 
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Global definitions
+
+# Set file paths
+SR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/g150/root/lin"
+CR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/l150/root/lin"
+for arg in sys.argv:
+    if arg.lower() == "mct":
+        CR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mCT/l200/root/lin"
+
+VAR = "mt_met_lep"
+VAR_THRESHOLD = "150"
+for arg in sys.argv:
+    if arg.lower() == "mct":
+        VAR = "mct"
+        VAR_THRESHOLD = "200"
+SR = VAR + 'g' + VAR_THRESHOLD
+CR = VAR + 'l' + VAR_THRESHOLD
+
+YEARS = ["2016", "2017", "2018"]
+JETS = ["ngoodjets2", "ngoodjets3"]
+BTAGS = ["b0", "b1", "b2"]
+REGIONS = [SR, CR]
+
+# This order follows the cxx plotting script
 TT_IDX = 1
 SINGLE_T_IDX = 2
 W_JETS_IDX = 3
-TT_V_IDEX = 4
+TT_V_IDX = 4
 DIBOSON_IDX = 5
-DATA_IDX = 7 
+DATA_IDX = 6 # Data is actually the seventh object on the canvas but we'll deal with that below. See getYields
+IDXES = [TT_IDX, SINGLE_T_IDX, W_JETS_IDX, TT_V_IDX, DIBOSON_IDX, DATA_IDX]
+N_BKGS_DATA = len(IDXES)
 
+BINNING = array.array('d', [125,200,300,400,2000])
+N_BINS = len(BINNING)-1
+BINNING_FOR_TH1D = (N_BINS, BINNING)
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Function definitions
 
-var = "mt_met_lep"
-threshold = "150"
-loweredArgs = [x.lower() for x in sys.argv]
-if "mct" in loweredArgs:
-    var = "mct"
-    threshold = "200"
-COMB_JETS_COMB_B = ['*y2016*' + var + 'g' + threshold + '*',
-                    '*y2016*' + var + 'l' + threshold + '*',
-                    '*y2017*' + var + 'g' + threshold + '*',
-                    '*y2017*' + var + 'l' + threshold + '*',
-                    '*y2018*' + var + 'g' + threshold + '*',
-                    '*y2018*' + var + 'l' + threshold + '*']
-COMB_JETS = ['*y2016*' + var + 'g' + threshold + '*b0*',
-             '*y2016*' + var + 'l' + threshold + '*b0*',
-             '*y2017*' + var + 'g' + threshold + '*b0*',
-             '*y2017*' + var + 'l' + threshold + '*b0*',
-             '*y2018*' + var + 'g' + threshold + '*b0*',
-             '*y2018*' + var + 'l' + threshold + '*b0*',
+# Add command line options
+def addCmdlineOptions():
+    parser = OptionParser()
+    parser.add_option("--combineYears", dest = "combineYears", default = False, action = "store_true", help = "Combine 2016, 2017, and 2018??")
+    parser.add_option("--combineJets" , dest = "combineJets" , default = False, action = "store_true", help = "Combine 2 and 3 jet selections?")
+    parser.add_option("--combineBTags", dest = "combineBTags", default = False, action = "store_true", help = "Combine 0, 1, and 2 b-tagged selections?")
+    parser.add_option("--combineBkgs" , dest = "combineBkgs" , default = False, action = "store_true", help = "Combine all backgrounds?")
+    parser.add_option("--variable"    , dest = "variable"    , default = "mt" , action = "store"     , help = "Checking for mT or mCT dependence?")
+    return parser.parse_args()
 
-             '*y2016*' + var + 'g' + threshold + '*b1*',
-             '*y2016*' + var + 'l' + threshold + '*b1*',
-             '*y2017*' + var + 'g' + threshold + '*b1*',
-             '*y2017*' + var + 'l' + threshold + '*b1*',
-             '*y2018*' + var + 'g' + threshold + '*b1*',
-             '*y2018*' + var + 'l' + threshold + '*b1*',
+# Get files from directories
+def getFiles(*argv):
+    from os import listdir
+    from os.path import isfile, join
+    allFiles = []
+    for path in argv:
+        for f in sorted(listdir(path)):
+            full = join(path, f)
+            if isfile(full):
+                allFiles.append(full)
+#                print(f)
+    return allFiles
 
-             '*y2016*' + var + 'g' + threshold + '*b2*',
-             '*y2016*' + var + 'l' + threshold + '*b2*',
-             '*y2017*' + var + 'g' + threshold + '*b2*',
-             '*y2017*' + var + 'l' + threshold + '*b2*',
-             '*y2018*' + var + 'g' + threshold + '*b2*',
-             '*y2018*' + var + 'l' + threshold + '*b2*']
-COMB_B = ['*y2016*ngoodjets2*' + var + 'g' + threshold + '*',
-          '*y2016*ngoodjets2*' + var + 'l' + threshold + '*',
-          '*y2017*ngoodjets2*' + var + 'g' + threshold + '*',
-          '*y2017*ngoodjets2*' + var + 'l' + threshold + '*',
-          '*y2018*ngoodjets2*' + var + 'g' + threshold + '*',
-          '*y2018*ngoodjets2*' + var + 'l' + threshold + '*',
+# For oldList = ["a","b"] and selection = ["1","3","4"], newList = ["a*1","b*1","a*3","b*3","a*4","b*4"]
+def expandList(oldList, selection):
+    newList = []
+    for sel in selection:
+        for elem in oldList:
+            newList.append(elem + "*" + sel)
+    return newList
 
-          '*y2016*ngoodjets3*' + var + 'g' + threshold + '*',
-          '*y2016*ngoodjets3*' + var + 'l' + threshold + '*',
-          '*y2017*ngoodjets3*' + var + 'g' + threshold + '*',
-          '*y2017*ngoodjets3*' + var + 'l' + threshold + '*',
-          '*y2018*ngoodjets3*' + var + 'g' + threshold + '*',
-          '*y2018*ngoodjets3*' + var + 'l' + threshold + '*']
-NO_COMB = ['*y2016*ngoodjets2*' + var + 'g' + threshold + '*b0*',
-           '*y2016*ngoodjets2*' + var + 'l' + threshold + '*b0*',
-           '*y2017*ngoodjets2*' + var + 'g' + threshold + '*b0*',
-           '*y2017*ngoodjets2*' + var + 'l' + threshold + '*b0*',
-           '*y2018*ngoodjets2*' + var + 'g' + threshold + '*b0*',
-           '*y2018*ngoodjets2*' + var + 'l' + threshold + '*b0*',
-           
-           '*y2016*ngoodjets2*' + var + 'g' + threshold + '*b1*',
-           '*y2016*ngoodjets2*' + var + 'l' + threshold + '*b1*',
-           '*y2017*ngoodjets2*' + var + 'g' + threshold + '*b1*',
-           '*y2017*ngoodjets2*' + var + 'l' + threshold + '*b1*',
-           '*y2018*ngoodjets2*' + var + 'g' + threshold + '*b1*',
-           '*y2018*ngoodjets2*' + var + 'l' + threshold + '*b1*',
-           
-           '*y2016*ngoodjets2*' + var + 'g' + threshold + '*b2*',
-           '*y2016*ngoodjets2*' + var + 'l' + threshold + '*b2*',
-           '*y2017*ngoodjets2*' + var + 'g' + threshold + '*b2*',
-           '*y2017*ngoodjets2*' + var + 'l' + threshold + '*b2*',
-           '*y2018*ngoodjets2*' + var + 'g' + threshold + '*b2*',
-           '*y2018*ngoodjets2*' + var + 'l' + threshold + '*b2*',
-           
-           '*y2016*ngoodjets3*' + var + 'g' + threshold + '*b0*',
-           '*y2016*ngoodjets3*' + var + 'l' + threshold + '*b0*',
-           '*y2017*ngoodjets3*' + var + 'g' + threshold + '*b0*',
-           '*y2017*ngoodjets3*' + var + 'l' + threshold + '*b0*',
-           '*y2018*ngoodjets3*' + var + 'g' + threshold + '*b0*',
-           '*y2018*ngoodjets3*' + var + 'l' + threshold + '*b0*',
-           
-           '*y2016*ngoodjets3*' + var + 'g' + threshold + '*b1*',
-           '*y2016*ngoodjets3*' + var + 'l' + threshold + '*b1*',
-           '*y2017*ngoodjets3*' + var + 'g' + threshold + '*b1*',
-           '*y2017*ngoodjets3*' + var + 'l' + threshold + '*b1*',
-           '*y2018*ngoodjets3*' + var + 'g' + threshold + '*b1*',
-           '*y2018*ngoodjets3*' + var + 'l' + threshold + '*b1*',
-           
-           '*y2016*ngoodjets3*' + var + 'g' + threshold + '*b2*',
-           '*y2016*ngoodjets3*' + var + 'l' + threshold + '*b2*',
-           '*y2017*ngoodjets3*' + var + 'g' + threshold + '*b2*',
-           '*y2017*ngoodjets3*' + var + 'l' + threshold + '*b2*',
-           '*y2018*ngoodjets3*' + var + 'g' + threshold + '*b2*',
-           '*y2018*ngoodjets3*' + var + 'l' + threshold + '*b2*']
+# Figures out how to group files
+def generateGrouping(options):
+    grouping = [""]
+    if not options.combineYears:
+        grouping = expandList(grouping, YEARS)
+    if not options.combineJets:
+        grouping = expandList(grouping, JETS)
+    grouping = expandList(grouping, REGIONS)
+    if not options.combineBTags:
+        grouping = expandList(grouping, BTAGS)
+    for i in range(len(grouping)): 
+        grouping[i] += '*'
+        print grouping[i]
+    return grouping
 
-def noData(fileName):
-    # var + "l" + threshold constitutes a CR and CRs have data
-    if ((var + "l" + threshold) in fileName): 
+# Groups files
+def groupFiles(allFiles, options):
+    fileGroups = [[]]
+    grouping = generateGrouping(options)
+    for selection in grouping:
+        dummyList = []
+        for f in allFiles:
+            if fnmatch.fnmatch(f, selection):
+                dummyList.append(f)
+#                print(f[75:])
+        fileGroups.append(dummyList)
+#        print("\n")
+    return fileGroups, grouping
+
+def isSR(fileName):
+    # SR does not have data
+    if (SR in fileName): 
         return True
     else:
         return False
 
-def drawYEqualsOne(binning):
-    bin = [min(binning), max(binning)]
-    binForHist = (1, array.array('d', bin))
-    one = ROOT.TD1D("","","",*binForHist)
+# Plots y = 1
+def yEqualsOne(xmin, xmax):
+    binning = [xmin, xmax]
+    binningForTH1D = (1, array.array('d', binning))
+    one = ROOT.TD1D("","","",*binningForTH1D)
     one.SetBinContent(1,1)
     one.SetLineColor(ROOT.kBlack)
-    one.Draw("hist same")
+    return one
 
-def generateHist(title = "", binning, , *argv):
+def generateHist(title, binning, *argv):
     h = ROOT.TH1D("", title + ";MET [GeV];mistag efficiencies", *binning)
     h.SetAxisRange(-0.2, 1.2, "Y")
     h.SetLineWidth(2)
@@ -125,144 +133,112 @@ def generateHist(title = "", binning, , *argv):
     return h
 #                bkg.Draw("hist same")
     
+def getIterator(fileName):
+    f = ROOT.TFile(fileName):
+    assert not f.IsZombie()
+    f.cd()
+    canvasName = f.GetListOfKeys().At(0).Getname()
+    tempCan = f.Get(canvasName)
+    can = tempCan.Clone()
+    f.Close()
+    topPad = canvas.FindObject("mytoppad")
+#    topPad.ls()
+    topPadList = topPad.GetListOFPrimitives()
+    return topPadList.begin() # This is the iterator
 
+# Gets yields by bin of every hist in file
+def getYields(fileName):
+    yields = numpy.np([[0 for y in range(len(N_BINS))] for x in range(N_BKGS_DATA)])
+    inclusive = numpy.np([])
+    it = getIterator(fileName):
+    for idx in IDXES:
+        hist = it.Next()
+        if DATA_IDX == idx:
+            hist = it.Next() # See definition of DATA_IDX
+            if isSR(fileName):
+                continue # No Data in SR
+        yields[idx][0] = hist.Integral(6,8)   # 125-200
+        yields[idx][1] = hist.Integral(9,12)  # 200-300
+        yields[idx][2] = hist.Integral(13,16) # 300-400
+        yields[idx][3] = hist.Integral(17,80) # 400-2000
+        inclusive[idx] = hist.Integral() 
+    # Hists in the back contain yields of all others in front of it. The difference is the actual yield 
+    for idx in IDXES:
+        if ((DATA_IDX == idx) or (DIBOSON_IDX == idx)):
+            continue
+        yields[idx][0] -= yields[idx+1][0]
+        yields[idx][1] -= yields[idx+1][1]
+        yields[idx][2] -= yields[idx+1][2]
+        yields[idx][3] -= yields[idx+1][3]
+        print(yields[idx])
+        inclusive[idx] -= inclusive[idx+1]
+        print(inclusive[idx])
+    print("\n")
+    return yields, inclusive
 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if __name__ == "__main__":
+def negativeToZero(arr):
+    for i in range(len(arr)):
+        for j in range(len(arr[i])):
+            if arr[i][j] < 0
+                arr[i][j] = 0
+    return arr
 
-    from optparse import OptionParser
-    parser = OptionParser()
-    parser.add_option("--combineJets" , dest = "combineJets" , default = False, action = "store_true", help = "Combine 2 and 3 jet selections?")
-    parser.add_option("--combineBTags", dest = "combineBTags", default = False, action = "store_true", help = "Combine 0, 1, and 2 b-tagged selections?")
-    parser.add_option("--combineBkgs" , dest = "combineBkgs" , default = False, action = "store_true", help = "Combine all backgrounds?")
-    parser.add_option("--variable"    , dest = "variable"    , default = "mt" , action = "store"     , help = "Checking for mT or mCT dependence?")
-    (options, args) = parser.parse_args()
+def checkDivideByZero(numer, denom):
+    for i in range(len(denom)):
+        for j in range(len(denom[i])):
+            if 0 == denom[i][j]:
+                if not (0 == numer[i][j]):
+                    print("Error: Somehow total is zero but Higgs is non-zero")
+                    sys.exit()
+                denom[i][j] = 1 # Any number is ok since numer/denom = 0
+    return denom
 
-    # Calculate the number of files we're working with (= to number of cuts).
-    # The end result is the number of "sets" of files which = number of plots.
-    differentJetCuts = 2      # 2 jets or 3 jets
-    differentBTagCuts = 3     # 0, 1, or 2 b tags
-    differentHiggsTagCuts = 2 # Higgs tag or no Higgs tag
-    differentYearCuts = 3     # 2016, 2017, or 2018
-    differentVariableCuts = 2 # High mT (150 >) or low mT (150, 50). High mCT (200 >) or low mCT (200 <)
-    numberOfFiles = differentJetCuts * differentBTagCuts * differentHiggsTagCuts * differentYearCuts * differentVariableCuts
-    if True == options.combineJets:
-        numberOfFiles = numberOfFiles/differentJetCuts  # Means do not differentiate between jet cuts.
-    if True == options.combineBTags:
-        numberOfFiles = numberOfFiles/differentBTagCuts # Means do not differentiate between b tag cuts.
-    numberOfFiles = numberOfFiles/differentHiggsTagCuts # Obviously any single mistag plot needs a Higgs and non-Higgs file, so we cannot differentiate between them.
-
-    # Get files and sort into into sets
-    from os import listdir
-    from os.path import isfile, join
-    CRFilePath = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/l150/root/lin"
-    SRFilePath = ""
-    if "mct" == options.variable.lower():
-        SRFilePath = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mCT/g150/root/lin"
+def calcMistag(higgsArr, totalArr, combination):
+    numer = compress(higgsArr, combination)
+    denom = compress(totalARr, combination)
+    denom = checkDivideByZero(numer, denom)
+    return numer/denom
+def histsFromGroup(fileGroup, title, options):
+    higgsYields = np.array([[0 for y in range(len(N_BINS))] for x in range(N_BKGS_DATA)])
+    totalYields = np.array([[0 for y in range(len(N_BINS))] for x in range(N_BKGS_DATA)])
+    higgsInclusive = np.array([for x in range(N_BKGS_DATA)])
+    totalInclusive = np.array([for x in range(N_BKGS_DATA)])
+    for fileName in fileGroup:
+        tempYields, tempInclusive = getYields(fileName)
+        if "Higgs" in fileName:
+            higgsYield += tempYields
+            higgsInclusive += tempInclusive
+        else:
+            totalYield += tempYields
+            totalInclusive += tempInclusive
+    higgsYields = negativeToZero(higgsYields)
+    totalYields = negativeToZero(totalYields)
+    higgsInclusive = negativeToZero(higgsInclusive)
+    totalInclusive = negativeToZero(totalInclusive)
+    
+    mistag = [[]]
+    mistagInclusive = []
+    combination = [[]]
+    if options.combineBkgs:
+        combination = [[TT_IDX, SINGLE_T_IDX, TT_V_IDX, W_JETS_IDX, DIBOSON_IDX],
+                       [DATA_IDX]]
     else:
-        SRFilePath = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/g150/root/lin"
-    allFiles = []
-#    print(listdir(CRFilePath))
-    for i in sorted(listdir(CRFilePath)):
-        f = join(CRFilePath, i)
-        if isfile(f):
-            allFiles.append(f)
-            print(f)
-    for i in sorted(listdir(SRFilePath)):
-        f = join(SRFilePath, i)
-        if isfile(f):
-            allFiles.append(f)
-            print(f)
-    sortedFiles = [[]]
+        combination = [[TT_IDX, SINGLE_T_IDX, TT_V_IDX], 
+                       [W_JETS_IDX, DIBOSON_IDX], 
+                       [DATA_IDX]]
+    mistag = calcMistag(higgsYield, totalYield, combinations)
+    mistagInclusive = calcMistag(higgsInclusive, totalInclusive, combination)
 
-    if ((True == options.combineJets) and (True == options.combineBTags)):
-        for i in COMB_JETS_COMB_B:
-            dummy = []
-            for j in allFiles:
-                if fnmatch.fnmatch(j, i):
-                    print(j[80:])
-                    dummy.append(j)
-            sortedFiles.append(dummy)
-            print("\n")
-    elif True == options.combineJets:
-        for i in COMB_JETS:
-            for j in allFiles:
-                if fnmatch.fnmatch(j, i):
-                    print(j)
-            print("\n")
-    elif True == options.combineBTags:
-        for i in COMB_B:
-            for j in allFiles:
-                if fnmatch.fnmatch(j, i):
-                    print(j)
-            print("\n")
-    else:
-        for i in NO_COMB:
-            for j in allFiles:
-                if fnmatch.fnmatch(j, i):
-                    print(j)
-            print("\n")
-
-#    sys.exit()        
-#    print("hello")
-#    histCount = 3 # top related, W + jets and diboson, data
-#    if options.combineBkg:
-#        histCount = 2
-            
-    # ROOT and historamming set up
-    ROOT.gStyle.SetOptStat(0)
-    binning = array.array('d', [125,200,300,400,2000])
-    binningArgs = (len(binning)-1, binning)
-
-
-    for fileSet in sortedFiles:
-#        if options.combineBkgs:
-#            getYields([[TT_IDX], 
-#                       [DATA_IDX]], 
-#                      fileSet)
-#        else:
-#            getYields([[TT_IDX, , 5], 
-#                       [3, 4], 
-#                       [6]], 
-#                      fileSet)
-        can = ROOT.TCanvas("","",500,500)
-        can.Draw()
-        drawYEqualsOne(binning)
-        for fileName in fileSet:
-            print("asserting " + fileName)
-            f = ROOT.TFile(fileName)                       # open file
-            assert not f.IsZombie()
-            f.cd() # What does this do?
-            canvasName = f.GetListOfKeys().At(0).GetName() # get canvas name 
-            tempCanvas = f.Get(canvasName)                 # get canvas using canvas name
-            canvas = tempCanvas.Clone()                    # clone canvas
-            f.Close()                                      # close file
-            topPad = canvas.FindObject("mytoppad")         # get top pad
-            topPadList = topPad.GetListOfPrimitives()      # get list from top pad
-            #topPadList.ls()
-            it = topPadList.begin()
-            arr = [[0 for y in range(5)] for x in range(6)]
-            for i in range(6):
-                hist = it.Next()
-                if 6 == i:
-                    hist = it.Next() # There's a TLegend object between bkgs and data (check topPadList.ls())
-                    if noData(fileName):
-                        continue # No data in SR
-                arr[i][0] = hist.Integral(6,8)   # 125-200
-                arr[i][1] = hist.Integral(9,12)  # 200-300
-                arr[i][2] = hist.Integral(13,16) # 300-400
-                arr[i][3] = hist.Integral(17,80) # 400-2000
-                arr[i][4] = hist.Integral() # 0-2000
-            for i in range(6):
-            
-                arr[i][0] -= arr[i+1][0]
-                arr[i][1] -= arr[i+1][1]
-                arr[i][2] -= arr[i+1][2]
-                arr[i][3] -= arr[i+1][3]
-                arr[i][4] -= arr[i+1][4]
-                print(arr[i])
-            print("\n")
-            
+#        numer = compress(higgsYield, [[TT_IDX, SIGNLE_T_IDX, TT_V_IDX], [W_JETS_IDX, DIBOSON], [DATA_IDX]])
+#        denom = compress(totalYield, [[TT_IDX, SIGNLE_T_IDX, TT_V_IDX], [W_JETS_IDX, DIBOSON], [DATA_IDX]])
+#        denom = checkDivideByZero(numer, denom)
+#        mistag = numer/denom
+#
+#        numerInclusive = compress(higgsInclusive, [[TT_IDX, SIGNLE_T_IDX, TT_V_IDX], [W_JETS_IDX, DIBOSON], [DATA_IDX]])
+#        denomInclusive = compress(totalInclusive, [[TT_IDX, SIGNLE_T_IDX, TT_V_IDX], [W_JETS_IDX, DIBOSON], [DATA_IDX]])
+#        denomInclusive = checkDivideByZero(numerInclusive, denomInclusive)
+#        mistagInclusive = numerInclusive/denomInclusive
+                   
             if options.combineBkgs:
 #                bkgHist = ROOT.TH1D("", title + ";MET [GeV];mistag efficiencies", *binningArgs)
                 bkgHist = ROOT.TH1D("", ";MET [GeV];mistag efficiencies", *binningArgs)
@@ -287,28 +263,27 @@ if !noData(fileName):
                     dataHist = ROOT.TH1D("", ";MET [GeV];mistag efficiencies", *binningArgs)
                     dataHist.SetAxisRange(-0.2, 1.2, "Y")
                     dataHist.SetLineWidth(2)
-                    
-                
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    sys.exit()
+if __name__ == "__main__":
 
-    for i, f in enumerate(allFiles):
-        if fnmatch.fnmatch(f, 'y2016*'):
-            print(f)
-    print("Imported {} files".format(len(allFiles)))
-    
+    # Parsing command line
+    (options, args) = addCmdlineOptions()
 
+    # Getting and grouping files
+    allFiles = getFiles(SR_FILE_PATH, CR_FILE_PATH)
+    fileGroups, grouping = groupFiles(allFiles, options)
+    titles = generateTitles(grouping)
+    pngNames = generatePngNames(grouping)
 
-
-#    # ROOT and historamming set up
-#    ROOT.gStyle.SetOptStat(0)
-#    binning = array.array('d', [125,200,300,400,2000])
-#    binningArgs = (len(binning)-1, binning)
-#    # There are 3 columns of plots - top related, W + jets and diboson, and data. If --combineBkgs is True, then there are 2 columns - all backgrounds and data.
-#    columns = 3
-#    if True == options.combineBkgs:
-#        columns = 2
-#    numberOfPlots = [[ROOT.TH1D("", title + ";MET [GeV];mistag efficiencies", *binningArgs) for i in range(columns)] for x in range(numberOfFiles)] # Read as number of "sets" of files.
-
-
-
+    # Plotting
+    ROOT.gStyle.SetOptStat(0)
+    for groupcCount, fileGroup in enumerate(fileGroups):
+        can = ROOT.TCanvas("","",500,500)
+        can.Draw()
+        one = yEqualsOne(min(BINNING), max(BINNING))
+        one.Draw()
+        hists = histsFromGroup(fileGroup, titles[groupCount], options)
+        for hist in hists: 
+            hist.Draw()
+        can.SaveAs(pngNames[groupCount])
