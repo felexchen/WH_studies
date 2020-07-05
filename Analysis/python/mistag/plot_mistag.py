@@ -24,18 +24,18 @@ for arg in sys.argv:
 SR = VAR + 'g' + VAR_THRESHOLD
 CR = VAR + 'l' + VAR_THRESHOLD
 
-YEARS = ["2016", "2017", "2018"]
+YEARS = ["2016", "2017", "2018"]#, "Comb"]
 JETS = ["ngoodjets2", "ngoodjets3"]
 BTAGS = ["b0", "b1", "b2"]
 REGIONS = [SR, CR]
 
 # This order follows the cxx plotting script
-TT_IDX = 1
-SINGLE_T_IDX = 2
-W_JETS_IDX = 3
-TT_V_IDX = 4
-DIBOSON_IDX = 5
-DATA_IDX = 6 # Data is actually the seventh object on the canvas but we'll deal with that below. See getYields
+TT_IDX = 0
+SINGLE_T_IDX = 1
+W_JETS_IDX = 2
+TT_V_IDX = 3
+DIBOSON_IDX = 4
+DATA_IDX = 5 # Data is actually the seventh object on the canvas but we'll deal with that below. See getYields
 IDXES = [TT_IDX, SINGLE_T_IDX, W_JETS_IDX, TT_V_IDX, DIBOSON_IDX, DATA_IDX]
 N_BKGS_DATA = len(IDXES)
 
@@ -93,7 +93,7 @@ def generateGrouping(options):
 
 # Groups files
 def groupFiles(allFiles, options):
-    fileGroups = [[]]
+    fileGroups = []
     grouping = generateGrouping(options)
     for selection in grouping:
         dummyList = []
@@ -104,6 +104,80 @@ def groupFiles(allFiles, options):
         fileGroups.append(dummyList)
 #        print("\n")
     return fileGroups, grouping
+
+def generateTitles(grouping):
+    titles = ["" for row in range(len(grouping))]
+    for row in range(len(titles)):
+        for year in YEARS:
+            if year in grouping[row]:
+#                if year == "Comb":
+#                    titles[row] += "All Years "
+#                    break
+                titles[row] += (year + " ")
+                break
+        for jets in JETS:
+            if jets in grouping[row]:
+                titles[row] += (jets[-1] + " jets ")
+                break
+        for b in BTAGS:
+            if b in grouping[row]:
+                if '1' in b:
+                    titles[row] += ("1 b tag ")
+                    break
+                titles[row] += (b[-1] + " b tags ")
+                break
+        for region in REGIONS:
+            if region in grouping[row]:
+                if "mt_met_lepg150" == region:
+                    titles[row] += "150 > mT"
+                    break
+                elif "mt_met_lepl150" == region:
+                    titles[row] += "150 > mT > 50"
+                    break
+                elif "mctg200" == region:
+                    titles[row] += "200 > mCT"
+                    break
+                else:
+                    titles[row] += "mCT > 200"
+                    break
+#                titles[row] += (region[:-4] + " ")
+#                if 'g' in region:
+#                    titles[row] += "> "
+#                else:
+#                    titles[row] += "< "
+#                titles[row] += (region[-3:])
+#                break
+        if ' ' == titles[row][-1]:
+            titles[row] = titles[row][:-1]
+    return titles
+
+def generatePngNames(grouping):
+    pngNames = ["" for row in range(len(grouping))]
+    for row in range(len(pngNames)):
+        for year in YEARS:
+            if year in grouping[row]:
+                pngNames[row] += (year + "_")
+                break
+        for jets in JETS:
+            if jets in grouping[row]:
+                pngNames[row] += (jets[-1] + "jets_")
+                break
+        for b in BTAGS:
+            if b in grouping[row]:
+                if '1' in b:
+                    pngNames[row] += ("1btag_")
+                    break
+                pngNames[row] += (b[-1] + "btags_")
+                break
+        for region in REGIONS:
+            if region in grouping[row]:
+                pngNames[row] += region 
+                if "mt_met_lepl150" == region:
+                    pngNames[row] += "mt_met_met_lepg50"
+                    break
+        if '_' == pngNames[row][-1]:
+            pngNames[row] = pngNames[row][:-1]
+    return pngNames
 
 def isSR(fileName):
     # SR does not have data
@@ -116,41 +190,40 @@ def isSR(fileName):
 def yEqualsOne(xmin, xmax):
     binning = [xmin, xmax]
     binningForTH1D = (1, array.array('d', binning))
-    one = ROOT.TD1D("","","",*binningForTH1D)
+    one = ROOT.TH1D("","",*binningForTH1D)
     one.SetBinContent(1,1)
     one.SetLineColor(ROOT.kBlack)
     return one
-
-def generateHist(title, binning, *argv):
-    h = ROOT.TH1D("", title + ";MET [GeV];mistag efficiencies", *binning)
-    h.SetAxisRange(-0.2, 1.2, "Y")
-    h.SetLineWidth(2)
-    for i in range(4):
-        sum = 0
-        for j in argv:
-            sum += arr[j][i]
-        h.SetBinContent(i+1, arr[0][i] + arr[1][i] + arr[2][i] + arr[3][i] + arr[4][i])
-    return h
-#                bkg.Draw("hist same")
     
 def getIterator(fileName):
-    f = ROOT.TFile(fileName):
+    f = ROOT.TFile(fileName)
     assert not f.IsZombie()
     f.cd()
-    canvasName = f.GetListOfKeys().At(0).Getname()
+    canvasName = f.GetListOfKeys().At(0).GetName()
     tempCan = f.Get(canvasName)
     can = tempCan.Clone()
     f.Close()
-    topPad = canvas.FindObject("mytoppad")
-#    topPad.ls()
-    topPadList = topPad.GetListOFPrimitives()
+    topPad = can.FindObject("mytoppad")
+    #topPad.ls()
+    topPadList = topPad.GetListOfPrimitives()
     return topPadList.begin() # This is the iterator
 
 # Gets yields by bin of every hist in file
 def getYields(fileName):
-    yields = numpy.np([[0 for y in range(len(N_BINS))] for x in range(N_BKGS_DATA)])
-    inclusive = numpy.np([])
-    it = getIterator(fileName):
+    yields = np.array([[0.0 for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
+    inclusive = np.array([[0.0] for x in range(N_BKGS_DATA)]) # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
+#    it = getIterator(fileName)
+    f = ROOT.TFile(fileName)
+    assert not f.IsZombie()
+    f.cd()
+    canvasName = f.GetListOfKeys().At(0).GetName()
+    tempCan = f.Get(canvasName)
+    can = tempCan.Clone()
+    f.Close()
+    topPad = can.FindObject("mytoppad")
+    topPadList = topPad.GetListOfPrimitives()
+#    topPadList.ls()
+    it = topPadList.begin()
     for idx in IDXES:
         hist = it.Next()
         if DATA_IDX == idx:
@@ -161,7 +234,8 @@ def getYields(fileName):
         yields[idx][1] = hist.Integral(9,12)  # 200-300
         yields[idx][2] = hist.Integral(13,16) # 300-400
         yields[idx][3] = hist.Integral(17,80) # 400-2000
-        inclusive[idx] = hist.Integral() 
+        inclusive[idx][0] = hist.Integral()
+#        print(hist.Integral())
     # Hists in the back contain yields of all others in front of it. The difference is the actual yield 
     for idx in IDXES:
         if ((DATA_IDX == idx) or (DIBOSON_IDX == idx)):
@@ -170,8 +244,8 @@ def getYields(fileName):
         yields[idx][1] -= yields[idx+1][1]
         yields[idx][2] -= yields[idx+1][2]
         yields[idx][3] -= yields[idx+1][3]
-        print(yields[idx])
-        inclusive[idx] -= inclusive[idx+1]
+        inclusive[idx][0] -= inclusive[idx+1][0]
+#        print(yields[idx])
         print(inclusive[idx])
     print("\n")
     return yields, inclusive
@@ -179,9 +253,23 @@ def getYields(fileName):
 def negativeToZero(arr):
     for i in range(len(arr)):
         for j in range(len(arr[i])):
-            if arr[i][j] < 0
+            if arr[i][j] < 0:
                 arr[i][j] = 0
     return arr
+
+def compress(oldArr, combination):
+    # len(oldArr[any index]) gives number of columns
+    newArr = np.array([[0.0 for y in range(len(oldArr[0]))] for x in range(len(combination))])
+    for i, row in enumerate(combination):
+        for j in row:
+            newArr[i] += oldArr[j]
+            print(i)
+            print(j)
+            print(oldArr[j])
+#    print(oldArr)
+#    print("newArr")
+#    print(newArr)
+    return newArr
 
 def checkDivideByZero(numer, denom):
     for i in range(len(denom)):
@@ -195,74 +283,106 @@ def checkDivideByZero(numer, denom):
 
 def calcMistag(higgsArr, totalArr, combination):
     numer = compress(higgsArr, combination)
-    denom = compress(totalARr, combination)
+    denom = compress(totalArr, combination)
     denom = checkDivideByZero(numer, denom)
+    print(numer)
+    print(denom)
+    print(numer/denom)
     return numer/denom
-def histsFromGroup(fileGroup, title, options):
-    higgsYields = np.array([[0 for y in range(len(N_BINS))] for x in range(N_BKGS_DATA)])
-    totalYields = np.array([[0 for y in range(len(N_BINS))] for x in range(N_BKGS_DATA)])
-    higgsInclusive = np.array([for x in range(N_BKGS_DATA)])
-    totalInclusive = np.array([for x in range(N_BKGS_DATA)])
+
+def generateHistFromYields(yields, color, title = ""):
+    h = ROOT.TH1D("", title + ";MET [GeV];mistag efficiencies", *BINNING_FOR_TH1D)
+    h.SetAxisRange(-0.2, 1.2, "Y")
+    h.SetLineWidth(2)
+    h.SetLineColor(color)
+    for i, y in enumerate(yields):
+        h.SetBinContent(i+1, y)
+    return h
+
+def histsAndLegFromGroup(fileGroup, title, options):
+    higgsYields = np.array([[0.0 for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
+    totalYields = np.array([[0.0 for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
+    higgsInclusive = np.array([[0.0] for x in range(N_BKGS_DATA)])  # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
+    totalInclusive = np.array([[0.0] for x in range(N_BKGS_DATA)])  # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
     for fileName in fileGroup:
         tempYields, tempInclusive = getYields(fileName)
         if "Higgs" in fileName:
-            higgsYield += tempYields
+            higgsYields += tempYields
             higgsInclusive += tempInclusive
         else:
-            totalYield += tempYields
+            totalYields += tempYields
             totalInclusive += tempInclusive
     higgsYields = negativeToZero(higgsYields)
     totalYields = negativeToZero(totalYields)
     higgsInclusive = negativeToZero(higgsInclusive)
     totalInclusive = negativeToZero(totalInclusive)
+
+#    for i in range(len(higgsInclusive)):
+#        if higgsInclusive[i] < 0:
+#            higgsInclusive[i] = 0
+#    for i in range(len(totalInclusive)):
+#        if totalInclusive[i] < 0:
+#            totalInclusive[i] = 0
     
+    # Calculating mistags
     mistag = [[]]
-    mistagInclusive = []
+    mistagInclusive = [[]] # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
     combination = [[]]
+    combinationStr = []
     if options.combineBkgs:
         combination = [[TT_IDX, SINGLE_T_IDX, TT_V_IDX, W_JETS_IDX, DIBOSON_IDX],
                        [DATA_IDX]]
+        combinationStr = ['t#tbar{t}, single top, ttV, W + Jets, diboson',
+                          'data']
     else:
         combination = [[TT_IDX, SINGLE_T_IDX, TT_V_IDX], 
                        [W_JETS_IDX, DIBOSON_IDX], 
                        [DATA_IDX]]
-    mistag = calcMistag(higgsYield, totalYield, combinations)
+        combinationStr = ['t#tbar{t}, single top, ttV',
+                          'W + jets, diboson',
+                          'data']
+    mistag = calcMistag(higgsYields, totalYields, combination)
+#    print(mistag)
     mistagInclusive = calcMistag(higgsInclusive, totalInclusive, combination)
+    print(higgsInclusive)
+    print(totalInclusive)
+    print(mistagInclusive)
+    colors = [ROOT.kBlue+1, ROOT.kRed+1, ROOT.kGreen+1]
+    
+    # Plotting
+    hists = []
+    leg = ROOT.TLegend(0.55,0.75,0.9,0.9)
+    for i in range(len(mistag)):
+        # SR has no data. Skip if SR
+        if len(mistag) == (i+1):
+            if isSR(fileGroup[0]): # any index will work
+                continue
+        h = generateHistFromYields(mistag[i], colors[i], title)
+        hists.append(h)
+        leg.AddEntry(h, combinationStr[i], 'l')
+        inclusiveHist = ROOT.TH1D("","",*BINNING_FOR_TH1D)
+        leg.AddEntry(inclusiveHist, "inclusive: " + str(mistagInclusive[i][0]), 'l')
+    return hists, leg, combinationStr, mistagInclusive
 
-#        numer = compress(higgsYield, [[TT_IDX, SIGNLE_T_IDX, TT_V_IDX], [W_JETS_IDX, DIBOSON], [DATA_IDX]])
-#        denom = compress(totalYield, [[TT_IDX, SIGNLE_T_IDX, TT_V_IDX], [W_JETS_IDX, DIBOSON], [DATA_IDX]])
-#        denom = checkDivideByZero(numer, denom)
-#        mistag = numer/denom
-#
-#        numerInclusive = compress(higgsInclusive, [[TT_IDX, SIGNLE_T_IDX, TT_V_IDX], [W_JETS_IDX, DIBOSON], [DATA_IDX]])
-#        denomInclusive = compress(totalInclusive, [[TT_IDX, SIGNLE_T_IDX, TT_V_IDX], [W_JETS_IDX, DIBOSON], [DATA_IDX]])
-#        denomInclusive = checkDivideByZero(numerInclusive, denomInclusive)
-#        mistagInclusive = numerInclusive/denomInclusive
-                   
-            if options.combineBkgs:
-#                bkgHist = ROOT.TH1D("", title + ";MET [GeV];mistag efficiencies", *binningArgs)
-                bkgHist = ROOT.TH1D("", ";MET [GeV];mistag efficiencies", *binningArgs)
-                bkgHist.SetAxisRange(-0.2, 1.2, "Y")
-                bkgHist.SetLineWidth(2)
-                for i in range(4):
-                    bkgHist.SetBinContent(i+1, arr[0][i] + arr[1][i] + arr[2][i] + arr[3][i] + arr[4][i])
-                bkgHist.Draw("hist same")
-            else:
-                bkgHist = ROOT.TH1D("", ";MET [GeV];mistag efficiencies", *binningArgs)
-                
-                bkgHist.SetAxisRange(-0.2, 1.2, "Y")
-                bkgHist.SetLineWidth(2)
-                for i in range(4):
-                    bkgHist.SetBinContent(i+1, arr[0][i] + arr[1][i] + arr[2][i] + arr[3][i] + arr[4][i])
-                bkgHist.Draw("hist same")
-            
-
-
-
-if !noData(fileName):
-                    dataHist = ROOT.TH1D("", ";MET [GeV];mistag efficiencies", *binningArgs)
-                    dataHist.SetAxisRange(-0.2, 1.2, "Y")
-                    dataHist.SetLineWidth(2)
+def generateSavePath(options):
+    path = "plots/" 
+    if "mt" == options.variable:
+        path += "mT/"
+    else: 
+        path += "mCT/"
+    if options.combineJets:
+        path += "combJets"
+    if options.combineBTags:
+        path += "combBTags"
+    if options.combineBkgs:
+        path += "combBkgs"
+    if not ('s' == path[-1]):
+        path += "noComb"
+    if '/' == path[-1]:
+        pass
+    else:
+        path += "/"
+    return path
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if __name__ == "__main__":
@@ -278,12 +398,24 @@ if __name__ == "__main__":
 
     # Plotting
     ROOT.gStyle.SetOptStat(0)
-    for groupcCount, fileGroup in enumerate(fileGroups):
+    for groupCount, fileGroup in enumerate(fileGroups):
         can = ROOT.TCanvas("","",500,500)
         can.Draw()
+        hists, leg, combinationStr, mistagInclusive = histsAndLegFromGroup(fileGroup, titles[groupCount], options)
+        ll = ROOT.TLegend(0.55,0.75,0.9,0.9)
+        for i, hist in enumerate(hists): 
+            hist.Draw("hist same")
+            ll.AddEntry(hist, combinationStr[i] + "\n" + "inclusive:", 'l')
+#           inclusiveHist = ROOT.TH1D("",titles[groupCount] + ";MET [GeV];mistag efficiencies",*BINNING_FOR_TH1D)
+#           inclusiveHist.SetLineColor(ROOT.kWhite)
+            histInc = hist
+            histInc.SetLineColor(ROOT.kWhite)
+            ll.AddEntry(histInc, "inclusive: " + str(mistagInclusive[i][0]), 'l')
+        
+#        print(leg)
+#        leg.Draw()
         one = yEqualsOne(min(BINNING), max(BINNING))
-        one.Draw()
-        hists = histsFromGroup(fileGroup, titles[groupCount], options)
-        for hist in hists: 
-            hist.Draw()
-        can.SaveAs(pngNames[groupCount])
+        one.Draw("hist same")
+        ll.Draw()
+        print("Saving {} \n".format(generateSavePath(options) + pngNames[groupCount] + ".png"))
+        can.SaveAs(generateSavePath(options) + pngNames[groupCount] + ".png")
