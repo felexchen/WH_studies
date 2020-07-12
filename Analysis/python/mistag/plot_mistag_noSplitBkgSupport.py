@@ -4,7 +4,7 @@ from optparse import OptionParser
 import fnmatch
 import array
 import numpy as np
-from WH_studies.Tools.u_float import u_float as uf
+#from WH_studies.Tools.u_float import u_float as uf
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Global definitions
@@ -16,11 +16,11 @@ SM_WH = ""
 for arg in sys.argv:
     if "smwh" in arg.lower():
         SM_WH = "SM_WH/"
-SR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/" + SM_WH + "g150/root/lin"
-CR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/" + SM_WH + "l150/root/lin"
+SR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/FatJet_pT/" + SM_WH + "g150/root/lin"
+CR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/FatJet_pT/" + SM_WH + "l150/root/lin"
 for arg in sys.argv:
     if arg.lower() == "mct":
-        CR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mCT/" + SM_WH + "l200/root/lin"
+        CR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mCT/FatJet_pT/" + SM_WH + "l200/root/lin"
 
 VAR = "mt_met_lep"
 VAR_THRESHOLD = "150"
@@ -80,16 +80,37 @@ def setCombination(options):
 
 
 # Get files from directories
-def getFiles(*argv):
+def getFiles(options, *argv):
     from os import listdir
     from os.path import isfile, join
+    for arg in argv:
+        print arg
     allFiles = []
     for path in argv:
         for f in sorted(listdir(path)):
             full = join(path, f)
             if isfile(full):
-                if not ("yComb" in full):
-                    allFiles.append(full)
+
+                # There are four scenarios: comb year or no, comb jets or no
+
+                # if combine years then only add combs
+                if options.combineYears:
+                    if "yComb" in full:
+                        if options.combineJets:
+                            if "ngoodjetsge2_ngoodjetsle3" in full:
+                                allFiles.append(full)        
+                        else:
+                            if not "ngoodjetsge2_ngoodjetsle3" in full:
+                                allFiles.append(full)
+                # if not combine years then only add not combs
+                else:
+                    if not ("yComb" in full):
+                        if options.combineJets:
+                            if "ngoodjetsge2_ngoodjetsle3" in full:
+                                allFiles.append(full)        
+                        else:
+                            if not "ngoodjetsge2_ngoodjetsle3" in full:
+                                allFiles.append(full)
 #                print(f)
     return allFiles
 
@@ -125,9 +146,9 @@ def groupFiles(allFiles, options):
         for f in allFiles:
             if fnmatch.fnmatch(f, selection):
                 dummyList.append(f)
-#                print(f[75:])
+                print(f[80:])
         fileGroups.append(dummyList)
-#        print("\n")
+        print("\n")
     return fileGroups, grouping
 
 def generateTitles(grouping):
@@ -438,9 +459,9 @@ def generateSF(hists, title, mistagInclusive):
 def generateSavePath(options):
     path = "plots/" 
     if "mt" == options.variable:
-        path += "mT/" + SM_WH
+        path += "mT/" + SM_WH + "FatJet_pT/"
     else: 
-        path += "mCT/" + SM_WH
+        path += "mCT/" + SM_WH + "FatJet_pT/"
     if options.combineYears:
         path += "combYears"
     if options.combineJets:
@@ -466,13 +487,18 @@ if __name__ == "__main__":
     print(COMBINATION_STR)
     
     # Getting and grouping files
-    allFiles = getFiles(SR_FILE_PATH, CR_FILE_PATH)
+    allFiles = getFiles(options, SR_FILE_PATH, CR_FILE_PATH)
     print("Using {} files".format(len(allFiles)))
     fileGroups, grouping = groupFiles(allFiles, options)
     titles = generateTitles(grouping)
+    for i, title in enumerate(titles):
+        print("{:2} {}".format(i, title))
     pngNames = generatePngNames(grouping)
+    for i, pngName in enumerate(pngNames):
+        print("{:2} {}".format(i, pngName))
     savePath = generateSavePath(options)
-
+    print savePath
+    sys.exit()
     # Plotting
     ROOT.gStyle.SetOptStat(0)
     SFHistsArr = []
