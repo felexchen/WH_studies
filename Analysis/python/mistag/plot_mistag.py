@@ -208,10 +208,15 @@ def getIterator(fileName):
     topPadList = topPad.GetListOfPrimitives()
     return topPadList.begin() # This is the iterator
 
+def extractUfFromHist(hist, binLow, binHigh):
+    error = ROOT.Double()
+    integ = hist.Integral(binLow, binHigh, error)
+    return uf(integ, error)
+    
 # Gets yields by bin of every hist in file
 def getYields(fileName):
-    yields = np.array([[0.0 for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
-    inclusive = np.array([[0.0] for x in range(N_BKGS_DATA)]) # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
+    yields = np.array([[uf(0.0) for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
+    inclusive = np.array([[uf(0.0)] for x in range(N_BKGS_DATA)]) # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
 #    it = getIterator(fileName)
     f = ROOT.TFile(fileName)
     assert not f.IsZombie()
@@ -230,6 +235,11 @@ def getYields(fileName):
             hist = it.Next() # See definition of DATA_IDX
             if isSR(fileName):
                 continue # No Data in SR
+        yields[idx][0] = extractUfFromHist(hist, 6, 8)
+        yields[idx][1] = extractUfFromHist(hist, 9, 12)
+        yields[idx][2] = extractUfFromHist(hist, 13, 16)
+        yields[idx][3] = extractUfFromHist(hist, 17, 80)
+        inclusive[idx[[0] = 
         yields[idx][0] = hist.Integral(6,8)   # 125-200
         yields[idx][1] = hist.Integral(9,12)  # 200-300
         yields[idx][2] = hist.Integral(13,16) # 300-400
@@ -253,13 +263,13 @@ def getYields(fileName):
 def negativeToZero(arr):
     for i in range(len(arr)):
         for j in range(len(arr[i])):
-            if arr[i][j] < 0:
-                arr[i][j] = 0
+            if arr[i][j].val < 0:
+                arr[i][j] = uf(0, arr[i][j].sigma) # check error
     return arr
 
 def compress(oldArr, combination):
     # len(oldArr[any index]) gives number of columns
-    newArr = np.array([[0.0 for y in range(len(oldArr[0]))] for x in range(len(combination))])
+    newArr = np.array([[uf(0.0,0.0) for y in range(len(oldArr[0]))] for x in range(len(combination))])
     for i, row in enumerate(combination):
         for j in row:
             newArr[i] += oldArr[j]
@@ -274,11 +284,12 @@ def compress(oldArr, combination):
 def checkDivideByZero(numer, denom):
     for i in range(len(denom)):
         for j in range(len(denom[i])):
-            if 0 == denom[i][j]:
-                if not (0 == numer[i][j]):
+            if 0 == denom[i][j].val:
+                if not (0 == numer[i][j].val):
                     print("Error: Somehow total is zero but Higgs is non-zero")
                     sys.exit()
-                denom[i][j] = 1 # Any number is ok since numer/denom = 0
+                denom[i][j] = uf(1, denom[i][j].sigma) # Any number for val is ok since numer/denom = 0 # Check error
+                
     return denom
 
 def calcMistag(higgsArr, totalArr, combination):
@@ -290,20 +301,21 @@ def calcMistag(higgsArr, totalArr, combination):
     print(numer/denom)
     return numer/denom
 
-def generateHistFromYields(yields, color, title = ""):
+def generateHistFromMistag(mistag, color, title = ""):
     h = ROOT.TH1D("", title + ";MET [GeV];mistag efficiencies", *BINNING_FOR_TH1D)
     h.SetAxisRange(-0.2, 1.2, "Y")
     h.SetLineWidth(2)
     h.SetLineColor(color)
-    for i, y in enumerate(yields):
-        h.SetBinContent(i+1, y)
+    for i, m in enumerate(mistag):
+        h.SetBinContent(i+1, m.val)
+        h.SetBinError(i+1, m.sigma)
     return h
 
 def histsAndLegFromGroup(fileGroup, title, options):
-    higgsYields = np.array([[0.0 for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
-    totalYields = np.array([[0.0 for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
-    higgsInclusive = np.array([[0.0] for x in range(N_BKGS_DATA)])  # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
-    totalInclusive = np.array([[0.0] for x in range(N_BKGS_DATA)])  # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
+    higgsYields = np.array([[uf(0.0,0.0) for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
+    totalYields = np.array([[uf(0.0,0.0) for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
+    higgsInclusive = np.array([[uf(0.0)] for x in range(N_BKGS_DATA)])  # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
+    totalInclusive = np.array([[uf(0.0)] for x in range(N_BKGS_DATA)])  # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
     for fileName in fileGroup:
         tempYields, tempInclusive = getYields(fileName)
         if "Higgs" in fileName:
@@ -357,7 +369,7 @@ def histsAndLegFromGroup(fileGroup, title, options):
         if len(mistag) == (i+1):
             if isSR(fileGroup[0]): # any index will work
                 continue
-        h = generateHistFromYields(mistag[i], colors[i], title)
+        h = generateHistFromMistag(mistag[i], colors[i], title)
         hists.append(h)
         leg.AddEntry(h, combinationStr[i], 'l')
         inclusiveHist = ROOT.TH1D("","",*BINNING_FOR_TH1D)

@@ -44,7 +44,7 @@ if not ("" == SM_WH):
 IDEXS = [BKG_IDX, DATA_IDX]
 N_BKGS_DATA = len(IDEXS)
 
-BINNING = array.array('d', [125,200,300,400,2000])
+BINNING = array.array('d', [125,200,300,400,800])
 N_BINS = len(BINNING)-1
 BINNING_FOR_TH1D = (N_BINS, BINNING)
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -88,7 +88,8 @@ def getFiles(*argv):
         for f in sorted(listdir(path)):
             full = join(path, f)
             if isfile(full):
-                allFiles.append(full)
+                if not ("yComb" in full):
+                    allFiles.append(full)
 #                print(f)
     return allFiles
 
@@ -235,11 +236,14 @@ def getIterator(fileName):
 def extractUfFromHist(hist, binLow, binHigh):
     error = ROOT.Double()
     integ = hist.IntegralAndError(binLow, binHigh, error)
+#    if binLow == 17:
+#        print("integ: {}".format(integ))
+#        print("integ: {}".format(hist.Integral(32,80)))
     return uf(integ, error)
     
 # Gets yields by bin of every hist in file
 def getYields(fileName):
-    yields = np.array([[uf(0.0) for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
+    yields = np.array([[uf(0.0) for y in range(N_BINS+1)] for x in range(N_BKGS_DATA)]) # +1 for overflow
     inclusive = np.array([[uf(0.0)] for x in range(N_BKGS_DATA)]) # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
 #    it = getIterator(fileName)
     f = ROOT.TFile(fileName)
@@ -253,17 +257,37 @@ def getYields(fileName):
     topPadList = topPad.GetListOfPrimitives()
 #    topPadList.ls()
     it = topPadList.begin()
-    
+
+    # lumi shapes messed this up
+#    hist = it.Next()
+#    yields[0][0] = extractUfFromHist(hist, 6, 8)
+#    yields[0][1] = extractUfFromHist(hist, 9, 12)
+#    yields[0][2] = extractUfFromHist(hist, 13, 16)
+#    yields[0][3] = extractUfFromHist(hist, 17, 80)
+#    inclusive[0][0] = extractUfFromHist(hist, 1, 80) 
+#    for i in range(DATA_IDX-BKG_IDX):
+#        hist = it.Next()
+#        if not (hist.GetName() == "TPave"):
+#            print(hist.GetName() + " " + str(hist.Integral()))
+
     hist = it.Next()
-    yields[0][0] = extractUfFromHist(hist, 6, 8)
-    yields[0][1] = extractUfFromHist(hist, 9, 12)
-    yields[0][2] = extractUfFromHist(hist, 13, 16)
-    yields[0][3] = extractUfFromHist(hist, 17, 80)
-    inclusive[0][0] = extractUfFromHist(hist, 1, 80) 
+    yields[0][0] += extractUfFromHist(hist, 6, 8)
+    yields[0][1] += extractUfFromHist(hist, 9, 12)
+    yields[0][2] += extractUfFromHist(hist, 13, 16)
+    yields[0][3] += extractUfFromHist(hist, 17, 80)
+    inclusive[0][0] += extractUfFromHist(hist, 1, 80)         
     for i in range(DATA_IDX-BKG_IDX):
         hist = it.Next()
-        if not (hist.GetName() == "TPave"):
-            print(hist.GetName() + " " + str(hist.Integral()))
+#        print(hist.GetName())
+        if i+1 == (DATA_IDX-BKG_IDX):
+#            print("Reached data")
+            break
+        yields[0][0] += extractUfFromHist(hist, 6, 8)
+        yields[0][1] += extractUfFromHist(hist, 9, 12)
+        yields[0][2] += extractUfFromHist(hist, 13, 16)
+        yields[0][3] += extractUfFromHist(hist, 17, 80)
+        inclusive[0][0] += extractUfFromHist(hist, 1, 80) 
+
     if not isSR(fileName):
 #        hist = it.Next() # one more iteration for data # lumi shapes fixed this!!!
         yields[1][0] = extractUfFromHist(hist, 6, 8)
@@ -303,18 +327,20 @@ def calcMistag(higgsArr, totalArr):#, combination):
 
 def generateHistFromMistag(mistag, color, title = ""):
     h = ROOT.TH1D("", title + ";MET [GeV];mistag efficiencies", *BINNING_FOR_TH1D)
-    h.SetAxisRange(-0.2, 1.2, "Y")
+#    h.SetAxisRange(-0.2, 1.2, "Y")
     h.SetLineWidth(2)
     h.SetLineColor(color)
     h.GetYaxis().SetTitleOffset(1.4);
     for i, m in enumerate(mistag):
+        if i+1 == 5:
+            print("overflowing: {}".format(m.val))
         h.SetBinContent(i+1, m.val)
         h.SetBinError(i+1, m.sigma)
     return h
 
 def histsAndLegFromGroup(fileGroup, title, options):
-    higgsYields = np.array([[uf(0.0,0.0) for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
-    totalYields = np.array([[uf(0.0,0.0) for y in range(N_BINS)] for x in range(N_BKGS_DATA)])
+    higgsYields = np.array([[uf(0.0,0.0) for y in range(N_BINS+1)] for x in range(N_BKGS_DATA)]) # +1 for overflow
+    totalYields = np.array([[uf(0.0,0.0) for y in range(N_BINS+1)] for x in range(N_BKGS_DATA)]) # +1 for overflow
     higgsInclusive = np.array([[uf(0.0)] for x in range(N_BKGS_DATA)])  # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
     totalInclusive = np.array([[uf(0.0)] for x in range(N_BKGS_DATA)])  # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
     for fileName in fileGroup:
@@ -342,13 +368,15 @@ def histsAndLegFromGroup(fileGroup, title, options):
     mistagInclusive = [[]] # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
 
     mistag = calcMistag(higgsYields, totalYields)#, combination)
-#    print(higgsYields)
-#    print(totalYields)
-#    print(mistag)
     mistagInclusive = calcMistag(higgsInclusive, totalInclusive)#, combination)
-#    print(higgsInclusive)
-#    print(totalInclusive)
-#    print(mistagInclusive)
+
+    print(higgsYields)
+    print(totalYields)
+    print(mistag)
+ 
+    print(higgsInclusive)
+    print(totalInclusive)
+    print(mistagInclusive)
     colors = [ROOT.kBlue+1, ROOT.kRed+1, ROOT.kGreen+1]
     
     # Plotting
@@ -384,7 +412,7 @@ def generateSF(hists, title, mistagInclusive):
             break # Obviously we don't calculate data/data
         bkgSFHist = ROOT.TH1D("", title + " SF" + ";MET [GeV];Data/MC", *BINNING_FOR_TH1D)
         bkgSFHist.SetLineColor(colors[histCount])
-        bkgSFHist.SetAxisRange(-0.1, 3, "Y")
+#        bkgSFHist.SetAxisRange(-0.1, 3, "Y")
         bkgSFHist.SetLineWidth(2)
         for binCount in range(N_BINS):
             dataUf = extractUfFromBin(dataHist, binCount+1)
@@ -413,6 +441,8 @@ def generateSavePath(options):
         path += "mT/" + SM_WH
     else: 
         path += "mCT/" + SM_WH
+    if options.combineYears:
+        path += "combYears"
     if options.combineJets:
         path += "combJets"
     if options.combineBTags:
@@ -437,6 +467,7 @@ if __name__ == "__main__":
     
     # Getting and grouping files
     allFiles = getFiles(SR_FILE_PATH, CR_FILE_PATH)
+    print("Using {} files".format(len(allFiles)))
     fileGroups, grouping = groupFiles(allFiles, options)
     titles = generateTitles(grouping)
     pngNames = generatePngNames(grouping)
@@ -446,11 +477,15 @@ if __name__ == "__main__":
     ROOT.gStyle.SetOptStat(0)
     SFHistsArr = []
     SFLegs = []
+    SFPngNames = []
     for groupCount, fileGroup in enumerate(fileGroups):
         can = ROOT.TCanvas("","",800,800)
         can.Draw()
         hists, leg, mistagInclusive = histsAndLegFromGroup(fileGroup, titles[groupCount], options)
         if not isSR(fileGroup[0]): # any index (that exists) will work
+#            print(fileGroup[0])
+#            print(titles[groupCount])
+            SFPngNames.append(pngNames[groupCount])
             SFHist, SFLeg = generateSF(hists, titles[groupCount], mistagInclusive)
             SFHistsArr.append(SFHist)
             SFLegs.append(SFLeg)
@@ -459,10 +494,10 @@ if __name__ == "__main__":
 #            hist.SetMarkerSize(20)
             hist.Draw("SAME")
             hist.Draw("hist same")
-        one = yEqualsOne(min(BINNING), max(BINNING))
-        one.Draw("hist same")
+#        one = yEqualsOne(min(BINNING), max(BINNING))
+#        one.Draw("hist same")
         leg.Draw()
-        print("Saving {} \n".format(savePath + pngNames[groupCount] + ".png"))
+#        print("Saving {} \n".format(savePath + pngNames[groupCount] + ".png"))
         can.SaveAs(savePath + pngNames[groupCount] + ".png")
     for SFCount, SFHists in enumerate(SFHistsArr):
         can = ROOT.TCanvas("","",800,800)
@@ -473,6 +508,6 @@ if __name__ == "__main__":
         one = yEqualsOne(min(BINNING), max(BINNING))
         one.Draw("hist same")
         SFLegs[SFCount].Draw()
-        print("Saving {} \n".format(savePath + pngNames[SFCount] + "SF.png"))
-        can.SaveAs(savePath + pngNames[SFCount] + "SF.png")
+#        print("Saving {} \n".format(savePath + SFPngNames[SFCount] + "SF.png"))
+        can.SaveAs(savePath + SFPngNames[SFCount] + "SF.png")
     
