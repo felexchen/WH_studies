@@ -4,10 +4,12 @@ from optparse import OptionParser
 import fnmatch
 import array
 import numpy as np
-#from WH_studies.Tools.u_float import u_float as uf
+from WH_studies.Tools.u_float import u_float as uf
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Global definitions
+
+COLORS = [ROOT.kBlue+1, ROOT.kRed+1, ROOT.kGreen+1, ROOT.kYellow+1, ROOT.kOrange+1, ROOT.kViolet+1]
 
 COMBINATION_STR = []
 
@@ -31,22 +33,42 @@ for arg in sys.argv:
 SR = VAR + 'g' + VAR_THRESHOLD
 CR = VAR + 'l' + VAR_THRESHOLD
 
-YEARS = ["2016", "2017", "2018"]#, "Comb"]
+YEARS = ["2016", "2017", "2018"]
 JETS = ["ngoodjets2", "ngoodjets3"]
 BTAGS = ["b0", "b1", "b2"]
 REGIONS = [SR, CR]
 
 # This order follows the cxx plotting script
 BKG_IDX = 1
-DATA_IDX = 6
+SIGNAL_ALL_MASS = 7
+SIGNAL_ALL = 8
+SIGNAL_700_1 = 9
+SIGNAL_650_300 = 10
+SIGNAL_225_75 = 11
+DATA_IDX = 12
 if not ("" == SM_WH):
-    DATA_IDX = 7 # One more bkg means we shift data 
-IDEXS = [BKG_IDX, DATA_IDX]
+    # 1 more bkg means every non-bkg shifts down 1
+    SIGNAL_ALL_MASS += 1
+    SIGNAL_ALL += 1
+    SIGNAL_700_1 += 1
+    SIGNAL_650_300 += 1
+    SIGNAL_225_75 += 1
+    DATA_IDX += 1
+#IDEXS = [BKG_IDX, SIGNAL_ALL_MASS, SIGNAL_ALL, SIGNAL_700_1, SIGNAL_650_300, SIGNAL_225_75, DATA_IDX]
+IDEXS = [BKG_IDX, SIGNAL_ALL_MASS, SIGNAL_ALL, DATA_IDX]
 N_BKGS_DATA = len(IDEXS)
 
-BINNING = array.array('d', [125,200,300,400,800])
+BINNING = array.array('d', [250,350,950])#1750])
 N_BINS = len(BINNING)-1
 BINNING_FOR_TH1D = (N_BINS, BINNING)
+
+B0_Y = [-0.01, 0.05]
+B1_Y = [-0.1, 0.7]
+B2_Y = [0, 1.1]
+
+SF_B0_Y = [-1, 7]
+SF_B1_Y = [0, 1.5]
+SF_B2_Y = [0, 1.25]
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Function definitions
 
@@ -62,20 +84,24 @@ def addCmdlineOptions():
     return parser.parse_args()
 
 def setCombination(options):
-    #    combination = [[]]
     if options.combineBkgs:
-#        combination = [[TT_IDX, SINGLE_T_IDX, TT_V_IDX, W_JETS_IDX, DIBOSON_IDX],
-#                       [DATA_IDX]]
         COMBINATION_STR.append('t#bar{t}, single top, ttV, W + Jets, diboson')
         if not ("" == SM_WH):
             COMBINATION_STR[0]+=', SM WH'
+        COMBINATION_STR.append('signal (*,*)')
+        COMBINATION_STR.append('signal (700,1), signal (650,300), signal (225,75)')
+#        COMBINATION_STR.append('signal (700,1)')
+#        COMBINATION_STR.append('signal (650,300)')
+#        COMBINATION_STR.append('signal (225,75)')
         COMBINATION_STR.append('data')
     else:
-#        combination = [[TT_IDX, SINGLE_T_IDX, TT_V_IDX], 
-#                       [W_JETS_IDX, DIBOSON_IDX], 
-#                       [DATA_IDX]]
         COMBINATION_STR.append('t#bar{t}, single top, ttV')
         COMBINATION_STR.append('W + jets, diboson')
+        COMBINATION_STR.append('signal (*,*)')
+        COMBINATION_STR.append('signal (700,1), signal (650,300), signal (225,75)')
+#        COMBINATION_STR.append('signal (700,1)')
+#        COMBINATION_STR.append('signal (650,300)')
+#        COMBINATION_STR.append('signal (225,75)')
         COMBINATION_STR.append('data')
 
 
@@ -241,180 +267,108 @@ def yEqualsOne(xmin, xmax):
     one.SetLineColor(ROOT.kBlack)
     return one
     
-def getIterator(fileName):
+# Open file, get hist, and create new hist with binning given by BINNING above
+def combineBins(fileName, idx, inclusive = False):
     f = ROOT.TFile(fileName)
     assert not f.IsZombie()
     f.cd()
     canvasName = f.GetListOfKeys().At(0).GetName()
-    tempCan = f.Get(canvasName)
-    can = tempCan.Clone()
+    tempCanvas = f.Get(canvasName)
+    canvas = tempCanvas.Clone()
     f.Close()
-    topPad = can.FindObject("mytoppad")
-    #topPad.ls()
+    topPad = canvas.FindObject("mytoppad")
     topPadList = topPad.GetListOfPrimitives()
-    return topPadList.begin() # This is the iterator
-
-def extractUfFromHist(hist, binLow, binHigh):
-    error = ROOT.Double()
-    integ = hist.IntegralAndError(binLow, binHigh, error)
-#    if binLow == 17:
-#        print("integ: {}".format(integ))
-#        print("integ: {}".format(hist.Integral(32,80)))
-    return uf(integ, error)
-    
-# Gets yields by bin of every hist in file
-def getYields(fileName):
-    yields = np.array([[uf(0.0) for y in range(N_BINS+1)] for x in range(N_BKGS_DATA)]) # +1 for overflow
-    inclusive = np.array([[uf(0.0)] for x in range(N_BKGS_DATA)]) # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
-#    it = getIterator(fileName)
-    f = ROOT.TFile(fileName)
-    assert not f.IsZombie()
-    f.cd()
-    canvasName = f.GetListOfKeys().At(0).GetName()
-    tempCan = f.Get(canvasName)
-    can = tempCan.Clone()
-    f.Close()
-    topPad = can.FindObject("mytoppad")
-    topPadList = topPad.GetListOfPrimitives()
-#    topPadList.ls()
+    #topPadList.ls()
     it = topPadList.begin()
-
-    # lumi shapes messed this up
-#    hist = it.Next()
-#    yields[0][0] = extractUfFromHist(hist, 6, 8)
-#    yields[0][1] = extractUfFromHist(hist, 9, 12)
-#    yields[0][2] = extractUfFromHist(hist, 13, 16)
-#    yields[0][3] = extractUfFromHist(hist, 17, 80)
-#    inclusive[0][0] = extractUfFromHist(hist, 1, 80) 
-#    for i in range(DATA_IDX-BKG_IDX):
-#        hist = it.Next()
-#        if not (hist.GetName() == "TPave"):
-#            print(hist.GetName() + " " + str(hist.Integral()))
-
     hist = it.Next()
-    yields[0][0] += extractUfFromHist(hist, 6, 8)
-    yields[0][1] += extractUfFromHist(hist, 9, 12)
-    yields[0][2] += extractUfFromHist(hist, 13, 16)
-    yields[0][3] += extractUfFromHist(hist, 17, 80)
-    inclusive[0][0] += extractUfFromHist(hist, 1, 80)         
-    for i in range(DATA_IDX-BKG_IDX):
+    for i in range(idx-1):
         hist = it.Next()
-#        print(hist.GetName())
-        if i+1 == (DATA_IDX-BKG_IDX):
-#            print("Reached data")
-            break
-        yields[0][0] += extractUfFromHist(hist, 6, 8)
-        yields[0][1] += extractUfFromHist(hist, 9, 12)
-        yields[0][2] += extractUfFromHist(hist, 13, 16)
-        yields[0][3] += extractUfFromHist(hist, 17, 80)
-        inclusive[0][0] += extractUfFromHist(hist, 1, 80) 
+    print(hist.GetName())
+    err = ROOT.Double()
+    if inclusive:
+        singleBin = [min(BINNING), max(BINNING)]
+        singleBinning = (1, array.array('d', singleBin))
+        histCombinedBin = ROOT.TH1D("", "", *singleBinning)
+        histCombinedBin.SetBinContent(1, hist.IntegralAndError(1, 30, err))
+        histCombinedBin.SetBinError(1, err)
+        return histCombinedBin
+    else:
+        histCombinedBin = ROOT.TH1D("", "", *BINNING_FOR_TH1D)
+        histCombinedBin.SetBinContent(1, hist.IntegralAndError(1, 3, err))
+        histCombinedBin.SetBinError(1, err)
+        histCombinedBin.SetBinContent(2, hist.IntegralAndError(4, 30, err))
+        histCombinedBin.SetBinError(2, err)
+        return histCombinedBin
 
-    if not isSR(fileName):
-#        hist = it.Next() # one more iteration for data # lumi shapes fixed this!!!
-        yields[1][0] = extractUfFromHist(hist, 6, 8)
-        yields[1][1] = extractUfFromHist(hist, 9, 12)
-        yields[1][2] = extractUfFromHist(hist, 13, 16)
-        yields[1][3] = extractUfFromHist(hist, 17, 80)
-        inclusive[1][0] = extractUfFromHist(hist, 1, 80) 
-    return yields, inclusive
+def generateMistagHistAndInclusive(passed, total, idx, title, color):
+    passedCombinedBin = combineBins(passed, idx)
+    totalCombinedBin = combineBins(total, idx)
+    passedInclusive = combineBins(passed, idx, inclusive = True)
+    totalInclusive = combineBins(total, idx, inclusive = True)
+    if ROOT.TEfficiency.CheckConsistency(passedCombinedBin, totalCombinedBin) and ROOT.TEfficiency.CheckConsistency(passedInclusive, totalInclusive):
+        teff = ROOT.TEfficiency(passedCombinedBin, totalCombinedBin)
+        teff.Paint("") # AP is default but still needs to be passed..
+        graph = teff.GetPaintedGraph()
+        mistagHist = ROOT.TH1D("", title + ";FatJet p_{T} [GeV];mistag efficiencies", *BINNING_FOR_TH1D) 
+        if "0 b" in title:
+            mistagHist.SetAxisRange(B0_Y[0], B0_Y[1], "Y")
+        elif "1 b" in title:
+            mistagHist.SetAxisRange(B1_Y[0], B1_Y[1], "Y")
+        elif "2 b" in title:
+            mistagHist.SetAxisRange(B2_Y[0], B2_Y[1], "Y")
+        mistagHist.SetLineWidth(2)
+        mistagHist.SetLineColor(color)
+        mistagHist.GetYaxis().SetTitleOffset(1.4);
+#          print graph.GetN()
+        for i in range(graph.GetN()):
+            x = ROOT.Double()
+            y = ROOT.Double()
+            graph.GetPoint(i, x, y)
+     #       print i 
+            mistagHist.SetBinContent(i+1, y)
+            e = graph.GetErrorY(i)
+            mistagHist.SetBinError(i+1, e)#graph.GetErrorY(i))
+            if i == 1:
+                print "{} {} {}".format(idx, y, e)
+        incTeff = ROOT.TEfficiency(passedInclusive, totalInclusive)
+        incTeff.Paint("")
+        incGraph = incTeff.GetPaintedGraph()
+        dummy = ROOT.Double()
+        inclusive = ROOT.Double()
+        incGraph.GetPoint(0, dummy, inclusive)
+        inclusiveUncertainty = incGraph.GetErrorY(0)
+        return mistagHist, inclusive, inclusiveUncertainty
+#        return ROOT.TH1D("","asdasdasdas", *BINNING_FOR_TH1D), inclusive, inclusiveUncertainty
+#####        return ROOT.TH1D("","asdasdasdas", *BINNING_FOR_TH1D), 0, 0
 
-def negativeToZero(arr):
-    for i in range(len(arr)):
-        for j in range(len(arr[i])):
-            if arr[i][j].val < 0:
-                arr[i][j] = uf(0, arr[i][j].sigma) # check error
-    return arr
 
-def checkDivideByZero(numer, denom):
-    for i in range(len(denom)):
-        for j in range(len(denom[i])):
-            if 0 == denom[i][j].val:
-                if not (0 == numer[i][j].val):
-                    print("Error: Somehow total is zero but Higgs is non-zero")
-                    sys.exit()
-                denom[i][j] = uf(1, denom[i][j].sigma) # Any number for val is ok since numer/denom = 0 # Check error                
-    return denom
+    else:
+        print("ERROR: inconsistent!\n{}\n{}".format(passed, total))
+        sys.exit()
 
-def calcMistag(higgsArr, totalArr):#, combination):
-    #numer = compress(higgsArr, combination)
-    #denom = compress(totalArr, combination)
-    #denom = checkDivideByZero(numer, denom)
-    totalArr = checkDivideByZero(higgsArr, totalArr)
-#    print(numer)
-#    print(denom)
-#    print(numer/denom)
-#    return numer/denom
-    return higgsArr/totalArr
-
-def generateHistFromMistag(mistag, color, title = ""):
-    h = ROOT.TH1D("", title + ";MET [GeV];mistag efficiencies", *BINNING_FOR_TH1D)
-#    h.SetAxisRange(-0.2, 1.2, "Y")
-    h.SetLineWidth(2)
-    h.SetLineColor(color)
-    h.GetYaxis().SetTitleOffset(1.4);
-    for i, m in enumerate(mistag):
-        if i+1 == 5:
-            print("overflowing: {}".format(m.val))
-        h.SetBinContent(i+1, m.val)
-        h.SetBinError(i+1, m.sigma)
-    return h
-
-def histsAndLegFromGroup(fileGroup, title, options):
-    higgsYields = np.array([[uf(0.0,0.0) for y in range(N_BINS+1)] for x in range(N_BKGS_DATA)]) # +1 for overflow
-    totalYields = np.array([[uf(0.0,0.0) for y in range(N_BINS+1)] for x in range(N_BKGS_DATA)]) # +1 for overflow
-    higgsInclusive = np.array([[uf(0.0)] for x in range(N_BKGS_DATA)])  # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
-    totalInclusive = np.array([[uf(0.0)] for x in range(N_BKGS_DATA)])  # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
-    for fileName in fileGroup:
-        tempYields, tempInclusive = getYields(fileName)
-        if "Higgs" in fileName:
-            higgsYields += tempYields
-            higgsInclusive += tempInclusive
-        else:
-            totalYields += tempYields
-            totalInclusive += tempInclusive
-    higgsYields = negativeToZero(higgsYields)
-    totalYields = negativeToZero(totalYields)
-    higgsInclusive = negativeToZero(higgsInclusive)
-    totalInclusive = negativeToZero(totalInclusive)
-
-#    for i in range(len(higgsInclusive)):
-#        if higgsInclusive[i] < 0:
-#            higgsInclusive[i] = 0
-#    for i in range(len(totalInclusive)):
-#        if totalInclusive[i] < 0:
-#            totalInclusive[i] = 0
-    
-    # Calculating mistags
-    mistag = [[]]
-    mistagInclusive = [[]] # A 1D array also works but 2D ensures compatibility with functions like compress() and negativeToZero()
-
-    mistag = calcMistag(higgsYields, totalYields)#, combination)
-    mistagInclusive = calcMistag(higgsInclusive, totalInclusive)#, combination)
-
-    print(higgsYields)
-    print(totalYields)
-    print(mistag)
- 
-    print(higgsInclusive)
-    print(totalInclusive)
-    print(mistagInclusive)
-    colors = [ROOT.kBlue+1, ROOT.kRed+1, ROOT.kGreen+1]
-    
-    # Plotting
+def histsAndLegFromGroup(fileGroup, title):#, options):
+    # fileGroup has two files. ALWAYS
+#    print sorted(fileGroup)
+    print("\n\n\n\n\n")
+    passed = sorted(fileGroup)[1]
+    total = sorted(fileGroup)[0]
     hists = []
-#    ROOT.gStyle.SetLegendFont(42)
-#    ROOT.gStyle.SetLegendFillColor(1)
+    mistagInclusives = []
     leg = ROOT.TLegend(0.5,0.75,0.9,0.9)
-    for i in range(len(mistag)):
-        # SR has no data. Skip if SR
-        if len(mistag) == (i+1):
+    for i, idx in enumerate(IDEXS):
+#        if not (i == 0):
+#            continue
+        if len(IDEXS) == (i+1):
             if isSR(fileGroup[0]): # any index will work
-                continue
-        h = generateHistFromMistag(mistag[i], colors[i], title)
+                print "FOUND SR"
+                continue 
+        h, inclusive, inclusiveUncertainty = generateMistagHistAndInclusive(passed, total, idx, title, COLORS[i]) 
+        mistagInclusives.append(uf(inclusive, inclusiveUncertainty))
         hists.append(h)
         leg.AddEntry(h, COMBINATION_STR[i], 'l')
-        leg.AddEntry(None, "inclusive: " + str(mistagInclusive[i][0].val)[:5] + " #pm " + str(mistagInclusive[i][0].sigma)[:5], '')
-    return hists, leg, mistagInclusive
+        leg.AddEntry(None, "inclusive: " + str(inclusive)[:5] + " #pm " + str(inclusiveUncertainty)[:5], '')
+#    return hists, leg#, mistagInclusive
+    return hists, leg, mistagInclusives
 
 def extractUfFromBin(hist, bin):
     binContent = hist.GetBinContent(bin)
@@ -424,16 +378,20 @@ def extractUfFromBin(hist, bin):
 def generateSF(hists, title, mistagInclusive):
     # Last index is always for data
     dataHist = hists[-1]
-    dataInclusive = mistagInclusive[-1][0]
+    dataInclusive = mistagInclusive[-1]
     SFHists = []
-    colors = [ROOT.kBlue+1, ROOT.kRed+1, ROOT.kGreen+1]
     leg = ROOT.TLegend(0.5,0.75,0.9,0.9)
     for histCount, bkgHist in enumerate(hists):
         if len(hists) == histCount+1:
             break # Obviously we don't calculate data/data
-        bkgSFHist = ROOT.TH1D("", title + " SF" + ";MET [GeV];Data/MC", *BINNING_FOR_TH1D)
-        bkgSFHist.SetLineColor(colors[histCount])
-#        bkgSFHist.SetAxisRange(-0.1, 3, "Y")
+        bkgSFHist = ROOT.TH1D("", title + " SF" + ";FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
+        bkgSFHist.SetLineColor(COLORS[histCount])
+        if "0 b" in title:
+            bkgSFHist.SetAxisRange(SF_B0_Y[0], SF_B0_Y[1], "Y")
+        if "1 b" in title:
+            bkgSFHist.SetAxisRange(SF_B1_Y[0], SF_B1_Y[1], "Y")
+        if "2 b" in title:
+            bkgSFHist.SetAxisRange(SF_B2_Y[0], SF_B2_Y[1], "Y")
         bkgSFHist.SetLineWidth(2)
         for binCount in range(N_BINS):
             dataUf = extractUfFromBin(dataHist, binCount+1)
@@ -449,19 +407,19 @@ def generateSF(hists, title, mistagInclusive):
             else:
                 bkgSFHist.SetBinError(binCount+1, (dataUf/bkgUf).sigma)
         leg.AddEntry(bkgSFHist, COMBINATION_STR[histCount], 'l')
-        if 0 == mistagInclusive[histCount][0].val:
+        if 0 == mistagInclusive[histCount].val:
             leg.AddEntry(None, "inclusive: " + str(0), '')
         else:
-            leg.AddEntry(None, "inclusive: " + str((dataInclusive/mistagInclusive[histCount][0]).val)[:5] + " #pm " + str((dataInclusive/mistagInclusive[histCount][0]).sigma)[:5], '')
+            leg.AddEntry(None, "inclusive: " + str((dataInclusive/mistagInclusive[histCount]).val)[:5] + " #pm " + str((dataInclusive/mistagInclusive[histCount]).sigma)[:5], '')
         SFHists.append(bkgSFHist)
     return SFHists, leg
 
 def generateSavePath(options):
     path = "plots/" 
     if "mt" == options.variable:
-        path += "mT/" + SM_WH + "FatJet_pT/"
+        path += "mT/" + "FatJet_pT/" + SM_WH
     else: 
-        path += "mCT/" + SM_WH + "FatJet_pT/"
+        path += "mCT/" + "FatJet_pT/" + SM_WH
     if options.combineYears:
         path += "combYears"
     if options.combineJets:
@@ -498,19 +456,21 @@ if __name__ == "__main__":
         print("{:2} {}".format(i, pngName))
     savePath = generateSavePath(options)
     print savePath
-    sys.exit()
+#    sys.exit()
     # Plotting
     ROOT.gStyle.SetOptStat(0)
+#    ROOT.gROOT.ForceStyle(True)
     SFHistsArr = []
     SFLegs = []
     SFPngNames = []
     for groupCount, fileGroup in enumerate(fileGroups):
         can = ROOT.TCanvas("","",800,800)
         can.Draw()
-        hists, leg, mistagInclusive = histsAndLegFromGroup(fileGroup, titles[groupCount], options)
+        hists, leg, mistagInclusive = histsAndLegFromGroup(fileGroup, titles[groupCount])#, options)
+#        hists, leg = histsAndLegFromGroup(fileGroup, titles[groupCount])#, options)
         if not isSR(fileGroup[0]): # any index (that exists) will work
-#            print(fileGroup[0])
-#            print(titles[groupCount])
+##            print(fileGroup[0])
+##            print(titles[groupCount])
             SFPngNames.append(pngNames[groupCount])
             SFHist, SFLeg = generateSF(hists, titles[groupCount], mistagInclusive)
             SFHistsArr.append(SFHist)
@@ -518,6 +478,7 @@ if __name__ == "__main__":
         for i, hist in enumerate(hists): 
 #            hist.SetMarkerStyle(1)
 #            hist.SetMarkerSize(20)
+            hist.SetTitle(titles[groupCount] + ";FatJet p_{T} [GeV];mistag efficiencies")
             hist.Draw("SAME")
             hist.Draw("hist same")
 #        one = yEqualsOne(min(BINNING), max(BINNING))
@@ -525,6 +486,8 @@ if __name__ == "__main__":
         leg.Draw()
 #        print("Saving {} \n".format(savePath + pngNames[groupCount] + ".png"))
         can.SaveAs(savePath + pngNames[groupCount] + ".png")
+
+#    sys.exit()
     for SFCount, SFHists in enumerate(SFHistsArr):
         can = ROOT.TCanvas("","",800,800)
         can.Draw()
