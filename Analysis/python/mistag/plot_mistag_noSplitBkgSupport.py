@@ -4,7 +4,7 @@ from optparse import OptionParser
 import fnmatch
 import array
 import numpy as np
-from WH_studies.Tools.u_float import u_float as uf
+from WH_studies.Tools.asym_float import asym_float as af
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Global definitions
@@ -62,13 +62,13 @@ BINNING = array.array('d', [250,350,950])#1750])
 N_BINS = len(BINNING)-1
 BINNING_FOR_TH1D = (N_BINS, BINNING)
 
-B0_Y = [-0.01, 0.05]
-B1_Y = [-0.1, 0.7]
-B2_Y = [0, 1.1]
+B0_Y = [0, 0.1]
+B1_Y = [0, 0.7]
+B2_Y = [0.5, 1.1]
 
-SF_B0_Y = [-1, 7]
-SF_B1_Y = [0, 1.5]
-SF_B2_Y = [0, 1.25]
+SF_B0_Y = [-200, 200]
+SF_B1_Y = [0.1, 1.7]
+SF_B2_Y = [0.6, 1.3]
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Function definitions
 
@@ -308,40 +308,64 @@ def generateMistagHistAndInclusive(passed, total, idx, title, color):
     if ROOT.TEfficiency.CheckConsistency(passedCombinedBin, totalCombinedBin) and ROOT.TEfficiency.CheckConsistency(passedInclusive, totalInclusive):
         teff = ROOT.TEfficiency(passedCombinedBin, totalCombinedBin)
         teff.Paint("") # AP is default but still needs to be passed..
-        graph = teff.GetPaintedGraph()
-        mistagHist = ROOT.TH1D("", title + ";FatJet p_{T} [GeV];mistag efficiencies", *BINNING_FOR_TH1D) 
+        graphCopy = teff.GetPaintedGraph()
+        graph = ROOT.TGraphAsymmErrors(graphCopy.GetN())
+        graph.GetXaxis().SetLimits(250.,950.)
+        print graphCopy.GetN()
+        x = ROOT.Double()
+        y = ROOT.Double()
+        for i in range(graphCopy.GetN()):
+            graphCopy.GetPoint(i,x,y)
+            graph.SetPoint(i, x, y)#graphCopy.GetPointX(i), graphCopy.GetPointY(i))
+#            graph.SetPointError(i, graphCopy.GetErrorXlow(i), graphCopy.GetErrorXhigh(i), graphCopy.GetErrorYlow(i), graphCopy.GetErrorYhigh(i))
+            graph.SetPointError(i, 0, 0, graphCopy.GetErrorYlow(i), graphCopy.GetErrorYhigh(i))
+#        mistagHist = ROOT.TH1D("", title + ";FatJet p_{T} [GeV];mistag efficiencies", *BINNING_FOR_TH1D) 
+        graph.SetTitle(title + ";FatJet p_{T} [GeV];mistag efficiencies")        
         if "0 b" in title:
-            mistagHist.SetAxisRange(B0_Y[0], B0_Y[1], "Y")
+            graph.GetPoint(0, x, y)
+            print y
+            print graph.GetErrorYlow(0)
+            print str(y - graph.GetErrorYlow(0))
+            graph.GetPoint(1, x, y)
+            print y            
+            print graph.GetErrorYlow(1)
+            print str(y - graph.GetErrorYlow(1))
+#            mistagHist.SetAxisRange(B0_Y[0], B0_Y[1], "Y")
+            graph.SetMinimum(B0_Y[0])
+            graph.SetMaximum(B0_Y[1])
         elif "1 b" in title:
-            mistagHist.SetAxisRange(B1_Y[0], B1_Y[1], "Y")
+            graph.SetMinimum(B1_Y[0])
+            graph.SetMaximum(B1_Y[1])
+        #            mistagHist.SetAxisRange(B1_Y[0], B1_Y[1], "Y")
         elif "2 b" in title:
-            mistagHist.SetAxisRange(B2_Y[0], B2_Y[1], "Y")
-        mistagHist.SetLineWidth(2)
-        mistagHist.SetLineColor(color)
-        mistagHist.GetYaxis().SetTitleOffset(1.4);
+            graph.SetMinimum(B2_Y[0])
+            graph.SetMaximum(B2_Y[1])
+#            graph.GetYAxis().SetTitle(B2_Y[0], B2_Y[1])
+            #            mistagHist.SetAxisRange(B2_Y[0], B2Y[1], "Y")
+        graph.SetLineWidth(2)
+        graph.SetLineColor(color)
+        graph.GetYaxis().SetTitleOffset(1.4);
 #          print graph.GetN()
-        for i in range(graph.GetN()):
-            x = ROOT.Double()
-            y = ROOT.Double()
-            graph.GetPoint(i, x, y)
-     #       print i 
-            mistagHist.SetBinContent(i+1, y)
-            e = graph.GetErrorY(i)
-            mistagHist.SetBinError(i+1, e)#graph.GetErrorY(i))
-            if i == 1:
-                print "{} {} {}".format(idx, y, e)
+#        for i in range(graph.GetN()):
+#            x = ROOT.Double()
+#            y = ROOT.Double()
+#            graph.GetPoint(i, x, y)
+#     #       print i 
+#            mistagHist.SetBinContent(i+1, y)
+#            e = graph.GetErrorY(i)
+#            mistagHist.SetBinError(i+1, e)#graph.GetErrorY(i))
+#            if i == 1:
+#                print "{} {} {}".format(idx, y, e)
         incTeff = ROOT.TEfficiency(passedInclusive, totalInclusive)
         incTeff.Paint("")
         incGraph = incTeff.GetPaintedGraph()
         dummy = ROOT.Double()
         inclusive = ROOT.Double()
         incGraph.GetPoint(0, dummy, inclusive)
-        inclusiveUncertainty = incGraph.GetErrorY(0)
-        return mistagHist, inclusive, inclusiveUncertainty
-#        return ROOT.TH1D("","asdasdasdas", *BINNING_FOR_TH1D), inclusive, inclusiveUncertainty
-#####        return ROOT.TH1D("","asdasdasdas", *BINNING_FOR_TH1D), 0, 0
-
-
+        inclusiveUncertaintyLow = incGraph.GetErrorYlow(0)
+        inclusiveUncertaintyHigh = incGraph.GetErrorYhigh(0)
+        #        return mistagHist, inclusive, inclusiveUncertainty
+        return graph, af(inclusive, inclusiveUncertaintyLow, inclusiveUncertaintyHigh)
     else:
         print("ERROR: inconsistent!\n{}\n{}".format(passed, total))
         sys.exit()
@@ -362,18 +386,22 @@ def histsAndLegFromGroup(fileGroup, title):#, options):
             if isSR(fileGroup[0]): # any index will work
                 print "FOUND SR"
                 continue 
-        h, inclusive, inclusiveUncertainty = generateMistagHistAndInclusive(passed, total, idx, title, COLORS[i]) 
-        mistagInclusives.append(uf(inclusive, inclusiveUncertainty))
+        h, mistagInclusive = generateMistagHistAndInclusive(passed, total, idx, title, COLORS[i]) 
+        mistagInclusives.append(mistagInclusive)
         hists.append(h)
         leg.AddEntry(h, COMBINATION_STR[i], 'l')
-        leg.AddEntry(None, "inclusive: " + str(inclusive)[:5] + " #pm " + str(inclusiveUncertainty)[:5], '')
+        leg.AddEntry(None, "inclusive: " + str(mistagInclusive.central)[:5] + " + " + str(mistagInclusive.up)[:5], '')
+        leg.AddEntry(None, "inclusive: " + str(mistagInclusive.central)[:5] + " - " + str(mistagInclusive.down)[:5], '')
 #    return hists, leg#, mistagInclusive
     return hists, leg, mistagInclusives
 
-def extractUfFromBin(hist, bin):
-    binContent = hist.GetBinContent(bin)
-    error = hist.GetBinError(bin)
-    return uf(binContent, error)
+def extractAfFromBin(hist, bin):
+    dummy = ROOT.Double()
+    central = ROOT.Double()
+    hist.GetPoint(bin, dummy, central)
+    down = hist.GetErrorYlow(bin)
+    up = hist.GetErrorYhigh(bin)
+    return af(central, down, up)
 
 def generateSF(hists, title, mistagInclusive):
     # Last index is always for data
@@ -384,33 +412,55 @@ def generateSF(hists, title, mistagInclusive):
     for histCount, bkgHist in enumerate(hists):
         if len(hists) == histCount+1:
             break # Obviously we don't calculate data/data
-        bkgSFHist = ROOT.TH1D("", title + " SF" + ";FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
+        bkgSFHist = ROOT.TGraphAsymmErrors(N_BINS)
+#        bkgSFHist = ROOT.TH1D("", title + " SF" + ";FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
         bkgSFHist.SetLineColor(COLORS[histCount])
+        bkgSFHist.SetTitle(title + ";FatJet p_{T} [GeV];Data/MC")        
         if "0 b" in title:
-            bkgSFHist.SetAxisRange(SF_B0_Y[0], SF_B0_Y[1], "Y")
+            bkgSFHist.SetMinimum(SF_B0_Y[0])
+            bkgSFHist.SetMaximum(SF_B0_Y[1])
+#            bkgSFHist.SetAxisRange(SF_B0_Y[0], SF_B0_Y[1], "Y")
         if "1 b" in title:
-            bkgSFHist.SetAxisRange(SF_B1_Y[0], SF_B1_Y[1], "Y")
+            bkgSFHist.SetMinimum(SF_B1_Y[0])
+            bkgSFHist.SetMaximum(SF_B1_Y[1])
+
+#            bkgSFHist.SetAxisRange(SF_B1_Y[0], SF_B1_Y[1], "Y")
         if "2 b" in title:
-            bkgSFHist.SetAxisRange(SF_B2_Y[0], SF_B2_Y[1], "Y")
+            bkgSFHist.SetMinimum(SF_B2_Y[0])
+            bkgSFHist.SetMaximum(SF_B2_Y[1])
+
+#            bkgSFHist.SetAxisRange(SF_B2_Y[0], SF_B2_Y[1], "Y")
         bkgSFHist.SetLineWidth(2)
         for binCount in range(N_BINS):
-            dataUf = extractUfFromBin(dataHist, binCount+1)
-            bkgUf = extractUfFromBin(bkgHist, binCount+1)
-            if 0 == bkgUf.val:
-                bkgSFHist.SetBinContent(binCount+1,0) # misleading
-                print("setting content to 0")
+            dataUf = extractAfFromBin(dataHist, binCount)#+1)
+            bkgUf = extractAfFromBin(bkgHist, binCount)#+1)
+            x = ROOT.Double()
+            dummy = ROOT.Double()
+            bkgHist.GetPoint(binCount, x, dummy)
+            if 0 == bkgUf.central:
+                bkgSFHist.SetPoint(binCount, x, 0) # misleading
+                bkgSFHist.SetPointError(binCount, 0, 0, 0, 0) # misleading
             else:
-                bkgSFHist.SetBinContent(binCount+1, (dataUf/bkgUf).val)
-            if 0 == bkgUf.sigma:
-                bkgSFHist.SetBinError(binCount+1,0) # misleading
-                print("setting error to 0")
-            else:
-                bkgSFHist.SetBinError(binCount+1, (dataUf/bkgUf).sigma)
+                bkgSFHist.SetPoint(binCount, x, (dataUf/bkgUf).central)
+                bkgSFHist.SetPointError(binCount, 0, 0, (dataUf/bkgUf).down, (dataUf/bkgUf).up)
+                
+                                      #if 0 == bkgUf.val:
+            #    bkgSFHist.SetBinContent(binCount+1,0) # misleading
+            #    print("setting content to 0")
+            #else:
+            #    bkgSFHist.SetBinContent(binCount+1, (dataUf/bkgUf).val)
+            #if 0 == bkgUf.sigma:
+            #    bkgSFHist.SetBinError(binCount+1,0) # misleading
+            #    print("setting error to 0")
+            #else:
+            #    bkgSFHist.SetBinError(binCount+1, (dataUf/bkgUf).sigma)
         leg.AddEntry(bkgSFHist, COMBINATION_STR[histCount], 'l')
-        if 0 == mistagInclusive[histCount].val:
-            leg.AddEntry(None, "inclusive: " + str(0), '')
+        if 0 == mistagInclusive[histCount].central:
+            leg.AddEntry(None, "inclusive: " + str(0) + " + " + str(0), '')
+            leg.AddEntry(None, "inclusive: " + str(0) + " - " + str(0), '')
         else:
-            leg.AddEntry(None, "inclusive: " + str((dataInclusive/mistagInclusive[histCount]).val)[:5] + " #pm " + str((dataInclusive/mistagInclusive[histCount]).sigma)[:5], '')
+            leg.AddEntry(None, "inclusive: " + str((dataInclusive/mistagInclusive[histCount]).central)[:5] + " + " + str((dataInclusive/mistagInclusive[histCount]).up)[:5], '')
+            leg.AddEntry(None, "inclusive: " + str((dataInclusive/mistagInclusive[histCount]).central)[:5] + " - " + str((dataInclusive/mistagInclusive[histCount]).down)[:5], '')
         SFHists.append(bkgSFHist)
     return SFHists, leg
 
@@ -467,10 +517,9 @@ if __name__ == "__main__":
         can = ROOT.TCanvas("","",800,800)
         can.Draw()
         hists, leg, mistagInclusive = histsAndLegFromGroup(fileGroup, titles[groupCount])#, options)
-#        hists, leg = histsAndLegFromGroup(fileGroup, titles[groupCount])#, options)
         if not isSR(fileGroup[0]): # any index (that exists) will work
-##            print(fileGroup[0])
-##            print(titles[groupCount])
+ ##            print(fileGroup[0])
+ ##            print(titles[groupCount])
             SFPngNames.append(pngNames[groupCount])
             SFHist, SFLeg = generateSF(hists, titles[groupCount], mistagInclusive)
             SFHistsArr.append(SFHist)
@@ -478,9 +527,33 @@ if __name__ == "__main__":
         for i, hist in enumerate(hists): 
 #            hist.SetMarkerStyle(1)
 #            hist.SetMarkerSize(20)
-            hist.SetTitle(titles[groupCount] + ";FatJet p_{T} [GeV];mistag efficiencies")
-            hist.Draw("SAME")
-            hist.Draw("hist same")
+#            hist.SetTitle(titles[groupCount] + ";FatJet p_{T} [GeV];mistag efficiencies")
+            #hist.Paint("ALP")
+            #hist.SetFillColor(31*i)
+            if 0 == i:
+                hist.Draw("AP")
+            else:
+                hist.Draw("P")
+            ROOT.gPad.Modified()
+            ROOT.gPad.Update()
+            hist.GetXaxis().SetLimits(250.,950.)
+            ROOT.gPad.Modified()
+            ROOT.gPad.Update()
+        th1ds = []
+        for i, hist in enumerate(hists): 
+            h = ROOT.TH1D("", titles[groupCount] + ";FatJet p_{T} [GeV];mistag efficiencies", *BINNING_FOR_TH1D)
+            x = ROOT.Double()
+            y = ROOT.Double()
+            hist.GetPoint(0, x, y)
+            h.SetBinContent(1, y)
+            hist.GetPoint(1, x, y)
+            h.SetBinContent(2, y)
+            h.SetLineWidth(2)
+#            h.SetAxisRange(0,1,"Y")
+            h.SetLineColor(COLORS[i])
+            th1ds.append(h)
+        for h in th1ds:
+            h.Draw("hist same")
 #        one = yEqualsOne(min(BINNING), max(BINNING))
 #        one.Draw("hist same")
         leg.Draw()
@@ -491,12 +564,36 @@ if __name__ == "__main__":
     for SFCount, SFHists in enumerate(SFHistsArr):
         can = ROOT.TCanvas("","",800,800)
         can.Draw()
-        for SFHist in SFHists:
-            SFHist.Draw("SAME")
-            SFHist.Draw("hist same")
+        for i, SFHist in enumerate(SFHists):
+            if 0 == i:
+                SFHist.Draw("AP")
+            else:
+                SFHist.Draw("P")
+            ROOT.gPad.Modified()
+            ROOT.gPad.Update()
+            SFHist.GetXaxis().SetLimits(250.,950.)
+            ROOT.gPad.Modified()
+            ROOT.gPad.Update()
+
+        th1ds = []
+        for i, SFHist in enumerate(SFHists):
+            h = ROOT.TH1D("", titles[groupCount] + ";FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
+            x = ROOT.Double()
+            y = ROOT.Double()
+            SFHist.GetPoint(0, x, y)
+            h.SetBinContent(1, y)
+            SFHist.GetPoint(1, x, y)
+            h.SetBinContent(2, y)
+            h.SetLineWidth(2)
+#            h.SetAxisRange(0,1,"Y")
+            h.SetLineColor(COLORS[i])
+            th1ds.append(h)
+        for h in th1ds:
+            h.Draw("hist same")
+        SFLegs[SFCount].Draw()
         one = yEqualsOne(min(BINNING), max(BINNING))
         one.Draw("hist same")
-        SFLegs[SFCount].Draw()
+
 #        print("Saving {} \n".format(savePath + SFPngNames[SFCount] + "SF.png"))
         can.SaveAs(savePath + SFPngNames[SFCount] + "SF.png")
     
