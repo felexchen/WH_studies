@@ -58,17 +58,17 @@ if not ("" == SM_WH):
 IDEXS = [BKG_IDX, SIGNAL_ALL_MASS, SIGNAL_ALL, DATA_IDX]
 N_BKGS_DATA = len(IDEXS)
 
-BINNING = array.array('d', [250,350,950])#1750])
+BINNING = array.array('d', [200,400,1000])#1750])
 N_BINS = len(BINNING)-1
 BINNING_FOR_TH1D = (N_BINS, BINNING)
 
 B0_Y = [0, 0.1]
-B1_Y = [0, 0.7]
+B1_Y = [0, 1]
 B2_Y = [0.5, 1.1]
 
-SF_B0_Y = [-200, 200]
-SF_B1_Y = [0.1, 1.7]
-SF_B2_Y = [0.6, 1.3]
+SF_B0_Y = [-4, 10]
+SF_B1_Y = [0, 3]
+SF_B2_Y = [0.8, 1.2]
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Function definitions
 
@@ -150,7 +150,7 @@ def expandList(oldList, selection):
 
 # Figures out how to group files
 def generateGrouping(options):
-    grouping = [""]
+    grouping = ["*pt0"]
     if not options.combineYears:
         grouping = expandList(grouping, YEARS)
     if not options.combineJets:
@@ -283,7 +283,7 @@ def combineBins(fileName, idx, inclusive = False):
     hist = it.Next()
     for i in range(idx-1):
         hist = it.Next()
-    print(hist.GetName())
+#    print(hist.GetName())
     err = ROOT.Double()
     if inclusive:
         singleBin = [min(BINNING), max(BINNING)]
@@ -294,9 +294,9 @@ def combineBins(fileName, idx, inclusive = False):
         return histCombinedBin
     else:
         histCombinedBin = ROOT.TH1D("", "", *BINNING_FOR_TH1D)
-        histCombinedBin.SetBinContent(1, hist.IntegralAndError(1, 3, err))
+        histCombinedBin.SetBinContent(1, hist.IntegralAndError(1, 4, err))
         histCombinedBin.SetBinError(1, err)
-        histCombinedBin.SetBinContent(2, hist.IntegralAndError(4, 30, err))
+        histCombinedBin.SetBinContent(2, hist.IntegralAndError(5, 30, err))
         histCombinedBin.SetBinError(2, err)
         return histCombinedBin
 
@@ -310,8 +310,8 @@ def generateMistagHistAndInclusive(passed, total, idx, title, color):
         teff.Paint("") # AP is default but still needs to be passed..
         graphCopy = teff.GetPaintedGraph()
         graph = ROOT.TGraphAsymmErrors(graphCopy.GetN())
-        graph.GetXaxis().SetLimits(250.,950.)
-        print graphCopy.GetN()
+        graph.GetXaxis().SetLimits(200.,1000.)
+#        print graphCopy.GetN()
         x = ROOT.Double()
         y = ROOT.Double()
         for i in range(graphCopy.GetN()):
@@ -365,7 +365,7 @@ def generateMistagHistAndInclusive(passed, total, idx, title, color):
         inclusiveUncertaintyLow = incGraph.GetErrorYlow(0)
         inclusiveUncertaintyHigh = incGraph.GetErrorYhigh(0)
         #        return mistagHist, inclusive, inclusiveUncertainty
-        return graph, af(inclusive, inclusiveUncertaintyLow, inclusiveUncertaintyHigh)
+        return graph, af(inclusive, inclusiveUncertaintyHigh, inclusiveUncertaintyLow)
     else:
         print("ERROR: inconsistent!\n{}\n{}".format(passed, total))
         sys.exit()
@@ -384,7 +384,7 @@ def histsAndLegFromGroup(fileGroup, title):#, options):
 #            continue
         if len(IDEXS) == (i+1):
             if isSR(fileGroup[0]): # any index will work
-                print "FOUND SR"
+#                print "FOUND SR"
                 continue 
         h, mistagInclusive = generateMistagHistAndInclusive(passed, total, idx, title, COLORS[i]) 
         mistagInclusives.append(mistagInclusive)
@@ -401,7 +401,7 @@ def extractAfFromBin(hist, bin):
     hist.GetPoint(bin, dummy, central)
     down = hist.GetErrorYlow(bin)
     up = hist.GetErrorYhigh(bin)
-    return af(central, down, up)
+    return af(central, up, down)
 
 def generateSF(hists, title, mistagInclusive):
     # Last index is always for data
@@ -410,12 +410,15 @@ def generateSF(hists, title, mistagInclusive):
     SFHists = []
     leg = ROOT.TLegend(0.5,0.75,0.9,0.9)
     for histCount, bkgHist in enumerate(hists):
-        if len(hists) == histCount+1:
-            break # Obviously we don't calculate data/data
+#        if len(hists) == histCount+1:
+        if 0 < histCount:
+            break # Obviously we don't calculate data/data (and signal since we get them)
+
         bkgSFHist = ROOT.TGraphAsymmErrors(N_BINS)
+        bkgSFHist.GetYaxis().SetTitleOffset(1.4);
 #        bkgSFHist = ROOT.TH1D("", title + " SF" + ";FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
         bkgSFHist.SetLineColor(COLORS[histCount])
-        bkgSFHist.SetTitle(title + ";FatJet p_{T} [GeV];Data/MC")        
+        bkgSFHist.SetTitle(title + " SF;FatJet p_{T} [GeV];Data/MC")        
         if "0 b" in title:
             bkgSFHist.SetMinimum(SF_B0_Y[0])
             bkgSFHist.SetMaximum(SF_B0_Y[1])
@@ -437,14 +440,20 @@ def generateSF(hists, title, mistagInclusive):
             x = ROOT.Double()
             dummy = ROOT.Double()
             bkgHist.GetPoint(binCount, x, dummy)
-            if 0 == bkgUf.central:
-                bkgSFHist.SetPoint(binCount, x, 0) # misleading
-                bkgSFHist.SetPointError(binCount, 0, 0, 0, 0) # misleading
-            else:
-                bkgSFHist.SetPoint(binCount, x, (dataUf/bkgUf).central)
-                bkgSFHist.SetPointError(binCount, 0, 0, (dataUf/bkgUf).down, (dataUf/bkgUf).up)
-                
-                                      #if 0 == bkgUf.val:
+#            if 0 == bkgUf.central:
+#                print "Setting to 0 SF"
+#                bkgSFHist.SetPoint(binCount, x, 0) # misleading
+#                bkgSFHist.SetPointError(binCount, 0, 0, 0, 0) # misleading
+#            else:
+            bkgSFHist.SetPoint(binCount, x, (dataUf/bkgUf).central)
+            bkgSFHist.SetPointError(binCount, 0, 0, (dataUf/bkgUf).down, (dataUf/bkgUf).up)
+            print (dataUf/bkgUf).down
+            print (dataUf/bkgUf).up
+            if (dataUf/bkgUf).up == 0.0:
+                print binCount
+                print dataUf
+                print bkgUf
+                          #if 0 == bkgUf.val:
             #    bkgSFHist.SetBinContent(binCount+1,0) # misleading
             #    print("setting content to 0")
             #else:
@@ -485,6 +494,72 @@ def generateSavePath(options):
     else:
         path += "/"
     return path
+
+def generateSignalSFs(fileName, options):
+    YEAR = 0
+    WP = 1
+    PTMIN = 2
+    PTMAX = 3
+    CENTRAL = 4
+    DOWN = 5
+    UP = 6
+    nBins = 5
+    binning = [200,300,400,500,600,1000]
+    nYears = 3
+    arr2D = []
+    with open(fileName) as f:
+        lines = f.readlines()
+        for i, line in enumerate(lines):
+            if 0 == i:
+                continue # first line is a description
+            if not ("mp" in line):
+                continue # only want "middle"? working point
+            dummy = []
+            for token in line.split():
+                dummy.append(token)
+            arr2D.append(dummy)
+        f.close()
+    graphs = []
+#    for arr in arr2D:
+#        print arr
+    for year in range(nYears):
+        graph = ROOT.TGraphAsymmErrors(nBins)
+        for bin in range(nBins):
+#            print bin+(year*nBins)
+#            print arr2D[bin+(year*nBins)]
+            graph.SetPoint(bin, (binning[bin+1]+binning[bin])/2, float(arr2D[bin+(year*nBins)][CENTRAL]))
+            graph.SetPointError(bin, 0, 0, float(arr2D[bin+(year*nBins)][DOWN]), float(arr2D[bin+(year*nBins)][UP]))
+        graph.SetTitle("201" + str(year+6) + " Signal SF;FatJet p_{T} [GeV];Data/MC")
+        if 0 == year:
+            graph.SetMinimum(0.8)
+            graph.SetMaximum(1.2)
+        elif 1 == year:
+            graph.SetMinimum(0.8)
+            graph.SetMaximum(1.2)
+        elif 2 == year:
+            graph.SetMinimum(1.1)
+            graph.SetMaximum(1.4)
+        graph.SetLineWidth(2)
+        graph.SetLineColor(ROOT.kRed+1)
+        graph.GetYaxis().SetTitleOffset(1.4);
+        graphs.append(graph)
+#    if not options.combineYears:
+    return graphs
+#    else: 
+#        collection = ROOT.TList()#Collection()
+#        for graph in graphs:
+#            collection.Add(graph)
+#        graph = ROOT.TGraphAsymmErrors()
+#        num = graph.Merge(collection)
+#        print num
+#        print graph.GetN()
+#        graph.SetTitle("All Years Signal SF;FatJet p_{T} [GeV];Data/MC")
+#        graph.SetMinimum(0.9)
+#        graph.SetMaximum(1.1)
+#        graph.SetLineWidth(2)
+#        graph.SetLineColor(ROOT.kRed+1)
+#        graph.GetYaxis().SetTitleOffset(1.4)
+#        return [graph]
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if __name__ == "__main__":
@@ -536,7 +611,7 @@ if __name__ == "__main__":
                 hist.Draw("P")
             ROOT.gPad.Modified()
             ROOT.gPad.Update()
-            hist.GetXaxis().SetLimits(250.,950.)
+            hist.GetXaxis().SetLimits(200.,1000.)
             ROOT.gPad.Modified()
             ROOT.gPad.Update()
         th1ds = []
@@ -571,13 +646,13 @@ if __name__ == "__main__":
                 SFHist.Draw("P")
             ROOT.gPad.Modified()
             ROOT.gPad.Update()
-            SFHist.GetXaxis().SetLimits(250.,950.)
+            SFHist.GetXaxis().SetLimits(200.,1000.)
             ROOT.gPad.Modified()
             ROOT.gPad.Update()
 
         th1ds = []
         for i, SFHist in enumerate(SFHists):
-            h = ROOT.TH1D("", titles[groupCount] + ";FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
+            h = ROOT.TH1D("", titles[groupCount] + " SF;FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
             x = ROOT.Double()
             y = ROOT.Double()
             SFHist.GetPoint(0, x, y)
@@ -596,4 +671,34 @@ if __name__ == "__main__":
 
 #        print("Saving {} \n".format(savePath + SFPngNames[SFCount] + "SF.png"))
         can.SaveAs(savePath + SFPngNames[SFCount] + "SF.png")
+    
+    signalSFs = generateSignalSFs("deepak8v2_bbvslight.csv", options)    
+    for signalSFCount, signalSF in enumerate(signalSFs):
+        can = ROOT.TCanvas("","",800,800)
+        can.Draw()
+        signalSF.Draw("AP")
+        ROOT.gPad.Modified()
+        ROOT.gPad.Update()
+        signalSF.GetXaxis().SetLimits(200.,1000.)
+        ROOT.gPad.Modified()
+        ROOT.gPad.Update()
+
+        binning = [200,300,400,500,600,1000]
+        binningForTH1D = (len(binning)-1, array.array('d', binning))
+
+        h = ROOT.TH1D("", "Signal SF;FatJet p_{T} [GeV];Data/MC", *binningForTH1D)
+        x = ROOT.Double()
+        y = ROOT.Double()
+        for i in range(5):
+            signalSF.GetPoint(i, x, y)
+            h.SetBinContent(i+1, y)
+        h.SetLineWidth(2)
+        h.SetLineColor(ROOT.kRed+1)
+        h.Draw("hist same")
+        one = yEqualsOne(min(BINNING), max(BINNING))
+        one.Draw("hist same")
+#        if len(signalSFs) == 0:
+#            can.SaveAs(savePath + "yComb" + "signalSF.png")
+ #       else:
+        can.SaveAs(savePath + "201" + str(signalSFCount+6) + "signalSF.png")
     
