@@ -5,6 +5,7 @@ import fnmatch
 import array
 import numpy as np
 from WH_studies.Tools.asym_float import asym_float as af
+from RootTools.core.standard import *
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Global definitions
@@ -18,11 +19,15 @@ SM_WH = ""
 for arg in sys.argv:
     if "smwh" in arg.lower():
         SM_WH = "SM_WH/"
-SR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/FatJet_pT/" + SM_WH + "g150/root/lin"
-CR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/FatJet_pT/" + SM_WH + "l150/root/lin"
+Gen = ""
+for arg in sys.argv:
+    if "gen" in arg.lower():
+        Gen = "Gen_H/"
+SR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/ANsignal/FatJet_pT/" + Gen + SM_WH + "g150/root/lin"
+CR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mT/ANsignal/FatJet_pT/" + Gen + SM_WH + "l150/root/lin"
 for arg in sys.argv:
     if arg.lower() == "mct":
-        CR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mCT/FatJet_pT/" + SM_WH + "l200/root/lin"
+        CR_FILE_PATH = "/home/users/fechen/CMSSW_8_0_20/src/mywh_draw/plots/mistag/mCT/ANsignal/FatJet_pT/" + Gen + SM_WH + "l200/root/lin"
 
 VAR = "mt_met_lep"
 VAR_THRESHOLD = "150"
@@ -36,27 +41,32 @@ CR = VAR + 'l' + VAR_THRESHOLD
 YEARS = ["2016", "2017", "2018"]
 JETS = ["ngoodjets2", "ngoodjets3"]
 BTAGS = ["b0", "b1", "b2"]
+N_Bs = len(BTAGS)
+if not ("" == Gen):
+    N_Bs = 1
 REGIONS = [SR, CR]
 
 # This order follows the cxx plotting script
 BKG_IDX = 1
-#SIGNAL_ALL_MASS = 7
-#SIGNAL_ALL = 8
-SIGNAL_700_1 = 7
-SIGNAL_650_300 = 8
-SIGNAL_225_75 = 9
-DATA_IDX = 10
-if not ("" == SM_WH):
-    # 1 more bkg means every non-bkg shifts down 1
-#    SIGNAL_ALL_MASS += 1
-#    SIGNAL_ALL += 1
-    SIGNAL_700_1 += 1
-    SIGNAL_650_300 += 1
-    SIGNAL_225_75 += 1
-    DATA_IDX += 1
+SIGNAL_750_1_FAST = 7
+SIGNAL_350_100_FAST = 8
+SIGNAL_750_1_FULL = 9
+SIGNAL_350_100_FULL = 10
+DATA_IDX = 11
+#if not ("" == SM_WH):
+#    # 1 more bkg means every non-bkg shifts down 1
+#    SIGNAL_DELTA_250 += 1
+#    SIGNAL_DELTA_250_500 += 1
+#    SIGNAL_DELTA_500 += 1
+##    SIGNAL_ALL_MASS += 1
+##    SIGNAL_ALL += 1
+##    SIGNAL_700_1 += 1
+##    SIGNAL_650_300 += 1
+##    SIGNAL_225_75 += 1
+#    DATA_IDX += 1
 #IDEXS = [BKG_IDX, SIGNAL_ALL_MASS, SIGNAL_ALL, SIGNAL_700_1, SIGNAL_650_300, SIGNAL_225_75, DATA_IDX]
 #IDEXS = [BKG_IDX, SIGNAL_ALL_MASS, SIGNAL_ALL, DATA_IDX]
-IDEXS = [BKG_IDX, DATA_IDX]
+IDEXS = [BKG_IDX, SIGNAL_750_1_FAST, SIGNAL_350_100_FAST, SIGNAL_750_1_FULL, SIGNAL_350_100_FULL, DATA_IDX]
 N_BKGS_DATA = len(IDEXS)
 
 BINNING = array.array('d', [200,400,1000])#1750])
@@ -81,6 +91,7 @@ def addCmdlineOptions():
     parser.add_option("--combineBTags", dest = "combineBTags", default = False, action = "store_true", help = "Combine 0, 1, and 2 b-tagged selections?")
     parser.add_option("--combineBkgs" , dest = "combineBkgs" , default = False, action = "store_true", help = "Combine all backgrounds?")
     parser.add_option("--SMWH"        , dest = "SMWH"        , default = False, action = "store_true", help = "Use root files with SM WH background?")
+    parser.add_option("--Gen"         , dest = "Gen"         , default = False, action = "store_true", help = "Use only Fat Jets with Gen H's inside?")
     parser.add_option("--variable"    , dest = "variable"    , default = "mt" , action = "store"     , help = "Checking for mT or mCT dependence?")
     return parser.parse_args()
 
@@ -89,11 +100,14 @@ def setCombination(options):
         COMBINATION_STR.append('t#bar{t}, single top, ttV, W + Jets, diboson')
         if not ("" == SM_WH):
             COMBINATION_STR[0]+=', SM WH'
-#        COMBINATION_STR.append('signal (*,*)')
-#        COMBINATION_STR.append('signal (700,1), signal (650,300), signal (225,75)')
-#        COMBINATION_STR.append('signal (700,1)')
-#        COMBINATION_STR.append('signal (650,300)')
-#        COMBINATION_STR.append('signal (225,75)')
+#        COMBINATION_STR.append('signal (750, 1) FastSim')
+#        COMBINATION_STR.append('signal (350, 100) FastSim')
+#        COMBINATION_STR.append('signal (750, 1) FullSim')
+#        COMBINATION_STR.append('signal (350, 100) FullSim')
+        COMBINATION_STR.append('FastSim (750, 1)')
+        COMBINATION_STR.append('FastSim (350, 100)')
+        COMBINATION_STR.append('FullSim (750, 1)')
+        COMBINATION_STR.append('FullSim (350, 100)')
         COMBINATION_STR.append('data')
     else:
         COMBINATION_STR.append('t#bar{t}, single top, ttV')
@@ -151,14 +165,19 @@ def expandList(oldList, selection):
 
 # Figures out how to group files
 def generateGrouping(options):
-    grouping = ["*pt0"]
+    grouping = [""]
     if not options.combineYears:
         grouping = expandList(grouping, YEARS)
     if not options.combineJets:
         grouping = expandList(grouping, JETS)
     grouping = expandList(grouping, REGIONS)
-    if not options.combineBTags:
-        grouping = expandList(grouping, BTAGS)
+    print Gen
+    if ("" == Gen):
+        if not options.combineBTags:
+            grouping = expandList(grouping, BTAGS)
+    else:
+        for i in range(len(grouping)):
+            grouping[i] += "*250g"
     for i in range(len(grouping)): 
         grouping[i] += '*'
         print grouping[i]
@@ -173,7 +192,7 @@ def groupFiles(allFiles, options):
         for f in allFiles:
             if fnmatch.fnmatch(f, selection):
                 dummyList.append(f)
-                print(f[80:])
+                print(f[20:])
         fileGroups.append(dummyList)
         print("\n")
     return fileGroups, grouping
@@ -192,13 +211,14 @@ def generateTitles(grouping):
             if jets in grouping[row]:
                 titles[row] += (jets[-1] + " jets ")
                 break
-        for b in BTAGS:
-            if b in grouping[row]:
-                if '1' in b:
-                    titles[row] += ("1 b tag ")
+        if ("" == Gen):
+            for b in BTAGS:
+                if b in grouping[row]:
+                    if '1' in b:
+                        titles[row] += ("1 b tag ")
+                        break
+                    titles[row] += (b[-1] + " b tags ")
                     break
-                titles[row] += (b[-1] + " b tags ")
-                break
         for region in REGIONS:
             if region in grouping[row]:
                 if "mt_met_lepg150" == region:
@@ -235,13 +255,14 @@ def generatePngNames(grouping):
             if jets in grouping[row]:
                 pngNames[row] += (jets[-1] + "jets_")
                 break
-        for b in BTAGS:
-            if b in grouping[row]:
-                if '1' in b:
-                    pngNames[row] += ("1btag_")
+        if ("" == Gen):
+            for b in BTAGS:
+                if b in grouping[row]:
+                    if '1' in b:
+                        pngNames[row] += ("1btag_")
+                        break
+                    pngNames[row] += (b[-1] + "btags_")
                     break
-                pngNames[row] += (b[-1] + "btags_")
-                break
         for region in REGIONS:
             if region in grouping[row]:
                 pngNames[row] += region 
@@ -255,6 +276,13 @@ def generatePngNames(grouping):
 def isSR(fileName):
     # SR does not have data
     if (SR in fileName): 
+        return True
+    else:
+        return False
+
+def is2017(fileName):
+    # SR does not have full sim
+    if("2017" in fileName):
         return True
     else:
         return False
@@ -284,17 +312,20 @@ def combineBins(fileName, idx, inclusive = False):
     hist = it.Next()
     for i in range(idx-1):
         hist = it.Next()
-#    print(hist.GetName())
+    print(hist.GetName())
     if inclusive:
         err = ROOT.Double()
         singleBin = [min(BINNING), max(BINNING)]
         singleBinning = (1, array.array('d', singleBin))
+#        histCombinedBin = ROOT.TH1D(hist.GetName(), "", *singleBinning)
         histCombinedBin = ROOT.TH1D("", "", *singleBinning)
         histCombinedBin.SetBinContent(1, hist.IntegralAndError(1, 4, err))
         histCombinedBin.SetBinError(1, err)
         return histCombinedBin
     else:
+#        histCombinedBin = ROOT.TH1D(hist.GetName(), "", *BINNING_FOR_TH1D)
         histCombinedBin = ROOT.TH1D("", "", *BINNING_FOR_TH1D)
+        print hist.GetBinContent(5)
         for binCount in range(N_BINS):
             if 1 == binCount:
                 err = ROOT.Double()
@@ -317,6 +348,7 @@ def generateMistagHistAndInclusive(passed, total, idx, title, color):
         teff.Paint("") # AP is default but still needs to be passed..
         graphCopy = teff.GetPaintedGraph()
         graph = ROOT.TGraphAsymmErrors(graphCopy.GetN())
+#        graph.SetName(passedCombinedBin.GetName())
         graph.GetXaxis().SetLimits(200.,1000.)
 #        print graphCopy.GetN()
         x = ROOT.Double()
@@ -327,8 +359,6 @@ def generateMistagHistAndInclusive(passed, total, idx, title, color):
 #            graph.SetPointError(i, graphCopy.GetErrorXlow(i), graphCopy.GetErrorXhigh(i), graphCopy.GetErrorYlow(i), graphCopy.GetErrorYhigh(i))
             graph.SetPointError(i, 0, 0, graphCopy.GetErrorYlow(i), graphCopy.GetErrorYhigh(i))
 #        mistagHist = ROOT.TH1D("", title + ";FatJet p_{T} [GeV];mistag efficiencies", *BINNING_FOR_TH1D) 
-            if idx == DATA_IDX:
-                print y
         graph.SetTitle(title + ";FatJet p_{T} [GeV];mistag efficiencies")        
         if "0 b" in title:
             # to check for negativity
@@ -399,16 +429,22 @@ def histsAndLegFromGroup(fileGroup, title):#, options):
         if len(IDEXS) == (i+1):
             if isSR(fileGroup[0]): # any index will work
 #                print "FOUND SR"
-                continue 
-        h, mistagInclusive = generateMistagHistAndInclusive(passed, total, idx, title, COLORS[i]) 
+                continue
+        if ((SIGNAL_750_1_FULL == idx) or (SIGNAL_350_100_FULL == idx)):
+            if is2017(fileGroup[0]): # any index will work
+                continue # 2017 does hot have full
+#        print("idx: {}".format(idx))
+        if is2017(fileGroup[0]) and DATA_IDX == idx:
+            h, mistagInclusive = generateMistagHistAndInclusive(passed, total, 9, title, COLORS[i]) 
+        else:
+            h, mistagInclusive = generateMistagHistAndInclusive(passed, total, idx, title, COLORS[i]) 
         mistagInclusives.append(mistagInclusive)
         hists.append(h)
-#        if (SIGNAL_ALL_MASS == idx) or (SIGNAL_ALL == idx):
-#            continue # we are separating signal and background plots
         leg.AddEntry(h, COMBINATION_STR[i], 'l')
         leg.AddEntry(None, "inclusive: " + str(mistagInclusive.central)[:5] + " + " + str(mistagInclusive.up)[:5], '')
         leg.AddEntry(None, "inclusive: " + str(mistagInclusive.central)[:5] + " - " + str(mistagInclusive.down)[:5], '')
 #    return hists, leg#, mistagInclusive
+    print mistagInclusives
     return hists, leg, mistagInclusives
 
 def extractAfFromBin(hist, bin):
@@ -425,7 +461,6 @@ def generateSF(hists, title, mistagInclusive):
     dataInclusive = mistagInclusive[-1]
     SFHists = []
     leg = ROOT.TLegend(0.5,0.75,0.9,0.9)
-    incs = []
     for histCount, bkgHist in enumerate(hists):
 #        if len(hists) == histCount+1:
         if 0 < histCount:
@@ -486,20 +521,17 @@ def generateSF(hists, title, mistagInclusive):
         leg.AddEntry(bkgSFHist, COMBINATION_STR[histCount], 'l')
         if 0 == mistagInclusive[histCount].central:# misleading
             leg.AddEntry(None, "inclusive: " + str(0) + " + " + str(0), '')
-            leg.AddEntry(None, "inclusiv: " + str(0) + " - " + str(0), '')
-            incs.append(af(0,0,0))
-#            leg.AddEntry(None, "inclusive: 0 +- 0")
+            leg.AddEntry(None, "inclusive: " + str(0) + " - " + str(0), '')
         else:
             leg.AddEntry(None, "inclusive: " + str((dataInclusive/mistagInclusive[histCount]).central)[:5] + " + " + str((dataInclusive/mistagInclusive[histCount]).up)[:5], '')
             leg.AddEntry(None, "inclusive: " + str((dataInclusive/mistagInclusive[histCount]).central)[:5] + " - " + str((dataInclusive/mistagInclusive[histCount]).down)[:5], '')
-            incs.append(dataInclusive/mistagInclusive[histCount])
         SFHists.append(bkgSFHist)
-    return SFHists, leg, incs
+    return SFHists, leg
 
 def generateSavePath(options):
     path = "plots/" 
     if "mt" == options.variable:
-        path += "mT/" + "FatJet_pT/" + SM_WH
+        path += "mT/" + "ANsignal/" + "FatJet_pT/" + SM_WH + Gen
     else: 
         path += "mCT/" + "FatJet_pT/" + SM_WH
     if options.combineYears:
@@ -543,13 +575,9 @@ def generateSignalSFs(fileName, options):
             arr2D.append(dummy)
         f.close()
     graphs = []
-#    for arr in arr2D:
-#        print arr
     for year in range(nYears):
         graph = ROOT.TGraphAsymmErrors(nBins)
         for bin in range(nBins):
-#            print bin+(year*nBins)
-#            print arr2D[bin+(year*nBins)]
             graph.SetPoint(bin, (binning[bin+1]+binning[bin])/2, float(arr2D[bin+(year*nBins)][CENTRAL]))
             graph.SetPointError(bin, 0, 0, float(arr2D[bin+(year*nBins)][DOWN]), float(arr2D[bin+(year*nBins)][UP]))
         graph.SetTitle("201" + str(year+6) + " Signal SF;FatJet p_{T} [GeV];Data/MC")
@@ -566,113 +594,108 @@ def generateSignalSFs(fileName, options):
         graph.SetLineColor(ROOT.kRed+1)
         graph.GetYaxis().SetTitleOffset(1.4);
         graphs.append(graph)
-#    if not options.combineYears:
     return graphs
-#    else: 
-#        collection = ROOT.TList()#Collection()
-#        for graph in graphs:
-#            collection.Add(graph)
-#        graph = ROOT.TGraphAsymmErrors()
-#        num = graph.Merge(collection)
-#        print num
-#        print graph.GetN()
-#        graph.SetTitle("All Years Signal SF;FatJet p_{T} [GeV];Data/MC")
-#        graph.SetMinimum(0.9)
-#        graph.SetMaximum(1.1)
-#        graph.SetLineWidth(2)
-#        graph.SetLineColor(ROOT.kRed+1)
-#        graph.GetYaxis().SetTitleOffset(1.4)
-#        return [graph]
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-def drawSig(graphs, inclusives, col, title, pngName):
+def drawObjects( year, mT, isData=False, lumi=137. ):
+    tex = ROOT.TLatex()
+    tex.SetNDC()
+    tex.SetTextSize(0.05)
+    tex.SetTextAlign(11) # align right
+    lines = [
+      (0.15, 0.945, 'CMS #bf{#it{Simulation}}'),
+      (0.48, 0.945, '#bf{' + year + mT + '}'),
+      (0.79, 0.945, '#bf{(13 TeV)}' )
+    ]
+    return [tex.DrawLatex(*l) for l in lines]
+
+def drawSig(graphs, inclusives, title, pngName, year, mT):
     can = ROOT.TCanvas("","",800,800)
     can.Draw()
     th1ds = []
-    leg = ROOT.TLegend(0.5,0.75,0.9,0.9)
-    for bCount in range(len(BTAGS)):
-        # resetting things
-        graphs[bCount][col].SetLineColor(COLORS[bCount])
-        graphs[bCount][col].SetTitle(COMBINATION_STR[col+1] + " " + title + ";FatJet p_{T} [GeV];Data/MC")
-        graphs[bCount][col].SetMinimum(0)
-        graphs[bCount][col].SetMaximum(1.2)
-        if 0 == bCount:
-            graphs[bCount][col].Draw("AP")
-        else:
-            graphs[bCount][col].Draw("P")
-        ROOT.gPad.Modified()
-        ROOT.gPad.Update()
-        graphs[bCount][col].GetXaxis().SetLimits(200.,1000.)
-        ROOT.gPad.Modified()
-        ROOT.gPad.Update()
-    for bCount in range(len(BTAGS)):
-        h = ROOT.TH1D("",  COMBINATION_STR[col + 1] + " " + title + ";FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
-        x = ROOT.Double()
-        y = ROOT.Double()
-        for binCount in range(N_BINS):
-            graphs[bCount][col].GetPoint(binCount, x, y)
-            h.SetBinContent(binCount+1, y)
-        h.SetLineWidth(2)
-        h.SetLineColor(COLORS[bCount])
-#        print bCount
-        th1ds.append(h)
-        #leg.AddEntry(h, COMBINATION_STR[col + 1] + " " + str(bCount) + "b", 'l')
-        leg.AddEntry(h, str(bCount) + "b", 'l')
-        leg.AddEntry(None, "inclusive: " + str(inclusives[bCount][col].central)[:5] + " + " + str(inclusives[bCount][col].up)[:5], '')
-        leg.AddEntry(None, "inclusive: " + str(inclusives[bCount][col].central)[:5] + " - " + str(inclusives[bCount][col].down)[:5], '')    
-    for h in th1ds:
-        h.Draw("hist same")
-    one = yEqualsOne(min(BINNING), max(BINNING))
-    one.Draw("hist same")
-    leg.Draw()
-    can.SaveAs(savePath + pngName + ".png")
-        
-def drawThese(graphs, incs, legends, title, pngName):
-    can = ROOT.TCanvas("","",800,800)
-    can.Draw()
-    th1ds = []
-    leg = ROOT.TLegend(0.5,0.75,0.9,0.9)
+    leg = ROOT.TLegend(0.5,0.78,0.9,0.9)
+#    for graphCount, graph in enumerate(graphs):
+#        # resetting things
+#        graph.SetLineColor(COLORS[graphCount])
+#        graph.SetTitle(title + ";FatJet p_{T} [GeV];tagging efficiencies")
+#        graph.SetMinimum(0)
+#        graph.SetMaximum(50)
+##        if 0 == graphCount:
+##            graph.Draw("AP")
+##        else:
+##            graph.Draw("P")
+#        ROOT.gPad.Modified()
+#        ROOT.gPad.Update()
+#        graph.GetXaxis().SetLimits(200.,1000.)
+#        ROOT.gPad.Modified()
+#        ROOT.gPad.Update()
     for graphCount, graph in enumerate(graphs):
-        graph.SetLineColor(COLORS[graphCount])
-        graph.SetTitle(title + ";FatJet p_{T} [GeV];mistag efficiencies")
-        graph.SetMinimum(0)
-        graph.SetMaximum(1)
-        if 0 == graphCount:
-            graph.Draw("AP")
-        else:
-            graph.Draw("P")
-        ROOT.gPad.Modified()
-        ROOT.gPad.Update()
-        graph.GetXaxis().SetLimits(200.,1000.)
-        ROOT.gPad.Modified()
-        ROOT.gPad.Update()
-    for graphCount, graph, in enumerate(graphs):
-        h = ROOT.TH1D("", title + ";FatJet p_{T} [GeV];mistag efficiencies", *BINNING_FOR_TH1D)
+        h = ROOT.TH1D("", title + ";FatJet p_{T} [GeV];tagging efficiencies", *BINNING_FOR_TH1D)
         x = ROOT.Double()
         y = ROOT.Double()
         for binCount in range(N_BINS):
             graph.GetPoint(binCount, x, y)
             h.SetBinContent(binCount+1, y)
+            h.SetBinError(binCount+1, graph.GetErrorYlow(binCount))
+            print graph.GetErrorYlow(binCount)
+            print graph.GetErrorYhigh(binCount)
+            if not (graph.GetErrorYlow(binCount) == graph.GetErrorYhigh(binCount)):
+                print "error high and error low are different!"
+                sys.exit()
         h.SetLineWidth(2)
         h.SetLineColor(COLORS[graphCount])
+        h.legendText = COMBINATION_STR[graphCount+1] + ": " + str(inclusives[graphCount].central)[:5] + " #pm " + str(inclusives[graphCount].up)[:5]
+#        h.SetTextSize(50)
+        h.style = styles.lineStyle(COLORS[graphCount], errors = True)
         th1ds.append(h)
-        if not (str(incs[graphCount].up)[:5] == str(incs[graphCount].down)[:5]):
-            print "UP AND DOWN NOT THE SAME"
-            print incs[graphCount].up
-            print incs[graphCount].down
-#            sys.exit()
-#        leg.AddEntry(h, legends[graphCount] + " " + str(incs[graphCount].central)[:5] + " #pm " + str(incs[graphCount].up)[:5], 'l')
-        leg.AddEntry(h, legends[graphCount] + " " + str(incs[graphCount].central)[:5] + " + " + str(incs[graphCount].up)[:5] + " - " + str(incs[graphCount].down)[:5], 'l')
-#        leg.AddEntry(h, str(bCount) + "b", 'l')
-#        leg.AddEntry(None, "inclusive: " + str(inclusives[bCount][col].central)[:5] + " + " + str(inclusives[bCount][col].up)[:5], '')
-#        leg.AddEntry(None, "inclusive: " + str(inclusives[bCount][col].central)[:5] + " - " + str(inclusives[bCount][col].down)[:5], '')    
-    for h in th1ds:
-        h.Draw("hist same")
+        
+        leg.AddEntry(h, COMBINATION_STR[graphCount+1] + ": " + str(inclusives[graphCount].central)[:5] + " #pm " + str(inclusives[graphCount].up)[:5], 'l')
+#        leg.AddEntry(None, "inclusive: " + str(inclusives[graphCount].central)[:5] + " #pm " + str(inclusives[graphCount].up)[:5], '')
+#        leg.AddEntry(h, graph.GetName(), 'l')
+        if not (str(inclusives[graphCount].up)[:5] == str(inclusives[graphCount].down)[:5]):
+            print "assymetric error!"
+            sys.exit()
+#        leg.AddEntry(None, "inclusive: " + str(inclusives[graphCount].central)[:5] + " + " + str(inclusives[graphCount].up)[:5], '')
+#        leg.AddEntry(None, "inclusive: " + str(inclusives[graphCount].central)[:5] + " - " + str(inclusives[graphCount].down)[:5], '')    
+#    for h in th1ds:
+#        h.Draw("SAME")
+#        h.Draw("hist same")
     one = yEqualsOne(min(BINNING), max(BINNING))
-    one.Draw("hist same")
+#    one.Draw("hist same")
     leg.Draw()
-    can.SaveAs(savePath + pngName + ".png")   
-    can.SaveAs(savePath + pngName + ".pdf")   
+    can.SaveAs(savePath + pngName + ".png")    
+
+    if not ("2017" in pngName):
+#        for th in th1ds:
+#            th.SetTitle("das")
+        print th1ds
+        plotting.draw(
+            Plot.fromHisto(name = pngName + "_ratio", histos = [ [th1ds[0]], [th1ds[1]], [th1ds[2]], [th1ds[3]] ], texX = "FatJet p_{T} (GeV)", texY = "Tagging Efficiencies"),
+            plot_directory = "./plots/mT/ANsignal/FatJet_pT/Gen_H/combJetscombBkgs/",
+            logX = False, logY = False, sorting = False,
+            yRange = (0,1),
+            legend = (0.4, 0.4, 0.9, 0.7),
+            drawObjects = drawObjects(year, mT),
+            scaling = {1:0},
+            ratio = {'histos': [(2,0), (3,1)], 'texY': 'Full / Fast', 'yRange': (0.6, 1.4)},
+            title = "das",
+            ) 
+    else:
+        for th in th1ds:
+            th.SetTitle("das")
+        print th1ds
+        plotting.draw(
+            Plot.fromHisto(name = pngName + "_ratio", histos = [ [th1ds[0]], [th1ds[1]]], texX = "FatJet p_{T} (GeV)", texY = "Tagging Efficiencies"),
+            plot_directory = "./plots/mT/ANsignal/FatJet_pT/Gen_H/combJetscombBkgs/",
+            logX = False, logY = False, sorting = False,
+            yRange = (0,1),
+            legend = (0.4, 0.4, 0.9, 0.7),
+            drawObjects = drawObjects(year, mT),
+            scaling = {1:0},
+            title = "das",
+#            ratio = {'histos': [(2,0), (3,1)], 'texY': 'Full / Fast'},
+            ) 
+    
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if __name__ == "__main__":
 
@@ -680,11 +703,14 @@ if __name__ == "__main__":
     (options, args) = addCmdlineOptions()
     setCombination(options)
     print(COMBINATION_STR)
-    
+
     # Getting and grouping files
     allFiles = getFiles(options, SR_FILE_PATH, CR_FILE_PATH)
     print("Using {} files".format(len(allFiles)))
+    for f in allFiles:
+        print f
     fileGroups, grouping = groupFiles(allFiles, options)
+    print("Actually using {} files".format(len(fileGroups)*len(fileGroups[0])))
     titles = generateTitles(grouping)
     for i, title in enumerate(titles):
         print("{:2} {}".format(i, title))
@@ -693,55 +719,52 @@ if __name__ == "__main__":
         print("{:2} {}".format(i, pngName))
     savePath = generateSavePath(options)
     print savePath
-#    sys.exit()
+    #sys.exit()
+
+
+
     # Plotting
     ROOT.gStyle.SetOptStat(0)
-#    ROOT.gROOT.ForceStyle(True)
     SFHistsArr = []
     SFLegs = []
     SFPngNames = []
-    SFincs = []
     sigslow = []
     sigsinclow = []
     sigshigh = []
     sigsinchigh = []
-    
-    allHists = []
-    allmis = []
     for groupCount, fileGroup in enumerate(fileGroups):
         sig = []
         siginc = []
         can = ROOT.TCanvas("","",800,800)
         can.Draw()
         hists, leg, mistagInclusive = histsAndLegFromGroup(fileGroup, titles[groupCount])#, options)
-        allHists.append(hists)
-        allmis.append(mistagInclusive)
         if not isSR(fileGroup[0]): # any index (that exists) will work
- ##            print(fileGroup[0])
- ##            print(titles[groupCount])
             SFPngNames.append(pngNames[groupCount])
-            SFHist, SFLeg, SFinc = generateSF(hists, titles[groupCount], mistagInclusive)
+            SFHist, SFLeg = generateSF(hists, titles[groupCount], mistagInclusive)
             SFHistsArr.append(SFHist)
             SFLegs.append(SFLeg)
-            SFincs.append(SFinc)
-#        sig.append(hists[1]) # signal all mass
-#        sig.append(hists[2]) # signal all
-#        siginc.append(mistagInclusive[1])
-#        siginc.append(mistagInclusive[2])
-#        if not isSR(fileGroup[0]):
-#            sigslow.append(sig)
-#            sigsinclow.append(siginc)
-#        else:
-#            sigshigh.append(sig)
-#            sigsinchigh.append(siginc)
+        #print hists
+        sig.append(hists[1])
+        sig.append(hists[2])
+        if not is2017(fileGroup[0]):
+            sig.append(hists[3])
+            sig.append(hists[4])
+#        print sig
+        siginc.append(mistagInclusive[1])
+        siginc.append(mistagInclusive[2])
+        if not is2017(fileGroup[0]):
+            siginc.append(mistagInclusive[3])
+            siginc.append(mistagInclusive[4])
+
+        if not isSR(fileGroup[0]):
+            sigslow.append(sig)
+            sigsinclow.append(siginc)
+        else:
+            sigshigh.append(sig)
+            sigsinchigh.append(siginc)
         for i, hist in enumerate(hists):
-#            if (1 == i) or (2 == i):
-#                continue # separating background and signal
-#            hist.SetMarkerStyle(1)
-#            hist.SetMarkerSize(20)
-#            hist.SetTitle(titles[groupCount] + ";FatJet p_{T} [GeV];mistag efficiencies")
-            #hist.Paint("ALP")
-            #hist.SetFillColor(31*i)
+            if (1 == i) or (2 == i):
+                continue # separating background and signal
             if 0 == i:
                 hist.Draw("AP")
             else:
@@ -753,8 +776,8 @@ if __name__ == "__main__":
             ROOT.gPad.Update()
         th1ds = []
         for i, hist in enumerate(hists): 
-#            if (1 == i) or (2 == i):
-#                continue # separating background and signal
+            if (1 == i) or (2 == i):
+                continue # separating background and signal
             h = ROOT.TH1D("", titles[groupCount] + ";FatJet p_{T} [GeV];mistag efficiencies", *BINNING_FOR_TH1D)
             x = ROOT.Double()
             y = ROOT.Double()
@@ -762,51 +785,69 @@ if __name__ == "__main__":
                 hist.GetPoint(binCount, x, y)
                 h.SetBinContent(binCount+1, y)
             h.SetLineWidth(2)
-#            h.SetAxisRange(0,1,"Y")
             h.SetLineColor(COLORS[i])
             th1ds.append(h)
         for h in th1ds:
             h.Draw("hist same")
-#        one = yEqualsOne(min(BINNING), max(BINNING))
-#        one.Draw("hist same")
         leg.Draw()
-#        print("Saving {} \n".format(savePath + pngNames[groupCount] + ".png"))
-        can.SaveAs(savePath + pngNames[groupCount] + ".png")
+#        can.SaveAs(savePath + pngNames[groupCount] + ".png")
 
-    allhigh = [allHists[0][0], allHists[2][0], allHists[4][0]]
-#    alllow = [allHists[1][0], allHists[3][0], allHists[5][0], allHists[1][3], allHists[3][3], allHists[5][3]]
-    alllow = [allHists[1][0], allHists[3][0], allHists[5][0], allHists[1][1], allHists[3][1], allHists[5][1]]
-    print allhigh
-    print alllow
-    for i in allHists:
-        print i
-    allhighmis = [allmis[0][0], allmis[2][0], allmis[4][0]]
-#    alllowmis = [allmis[1][0], allmis[3][0], allmis[5][0], allmis[1][3], allmis[3][3], allmis[5][3]]
-    alllowmis = [allmis[1][0], allmis[3][0], allmis[5][0], allmis[1][1], allmis[3][1], allmis[5][1]]
-    print allhighmis
-    print alllowmis
-    for i in allmis:
-        print i
-
-    drawThese(allhigh, allhighmis, ['Bkg: 0 b-tags', 'Bkg: 1 b-tag', 'Bkg: 2 b-tags'], "mT > 150", "high")
-    drawThese(alllow , alllowmis , ['Bkg: 0 b-tags', 'Bkg: 1 b-tag', 'Bkg: 2 b-tags', 'Data: 0 b-tags', 'Data: 1 b-tag', 'Data: 2 b-tags'], "150 > mT", "low")
+    for siglow in sigslow:
+        print siglow
+    for sighigh in sigshigh:
+        print sighigh
+    for siginclow in sigsinclow:
+        print siginclow
+    for siginchigh in sigsinchigh:
+        print siginchigh
 
 #    sys.exit()
-    can = ROOT.TCanvas("","",800,800)
-    can.Draw()
-    legSF = ROOT.TLegend(0.5, 0.8, 0.9, 0.9)
-    bb = ["0 b-tags", "1 b-tag", "2 b-tag"]
-    tts = []
+
+    # I don't think I need columns
+#    fast_750_1 = 0
+#    fast_350_100 = 1
+#    full_750_1 = 2
+#    full_350_100 = 3
+    years = ["2016", "2017", "2018"]
+    for i, year in enumerate(years):
+        drawSig(sigslow[i] , sigsinclow[i] , str(year) + " 150 > mT", "signal_" + str(year) + "_low_tag" , years[i], " 150 > mT")
+        drawSig(sigshigh[i], sigsinchigh[i], str(year) + " mT > 150", "signal_" + str(year) + "_high_tag", years[i], " mT > 150")
+    
+    sys.exit()
+
+    delta_500 = 0
+    delta_250_500 = 1
+    delta_250 = 2
+    if "" == Gen:
+        drawSig(sigslow , sigsinclow , delta_500    , "150 > mT > 50", "signal_500_low_mistag")
+        drawSig(sigslow , sigsinclow , delta_250_500, "150 > mT > 50", "signal_250_500_low_mistag")
+        drawSig(sigslow , sigsinclow , delta_250    , "150 > mT > 50", "signal_250_low_mistag")
+        drawSig(sigshigh, sigsinchigh, delta_500    , "mT > 150"     , "signal_500_high_mistag")
+        drawSig(sigshigh, sigsinchigh, delta_250_500, "mT > 150"     , "signal_250_500_high_mistag")
+        drawSig(sigshigh, sigsinchigh, delta_250    , "mT > 150"     , "signal_250_high_mistag")
+    else:
+        sigslow.append([sigslow[0][1]])
+        sigslow.append([sigslow[0][2]])
+        sigshigh.append([sigshigh[0][1]])
+        sigshigh.append([sigshigh[0][2]])
+        sigsinclow.append([sigsinclow[0][1]])
+        sigsinclow.append([sigsinclow[0][2]])
+        sigsinchigh.append([sigsinchigh[0][1]])
+        sigsinchigh.append([sigsinchigh[0][2]])
+        drawSig(sigslow, sigsinclow, 0, "150 > mT > 50", "signal_low_mistag") 
+        drawSig(sigshigh, sigsinchigh, 0, "mT > 150", "signal_high_mistag") 
+    sys.exit()
+
+
+
+
+
+
     for SFCount, SFHists in enumerate(SFHistsArr):
-#        can = ROOT.TCanvas("","",800,800)
-#        can.Draw()
+        can = ROOT.TCanvas("","",800,800)
+        can.Draw()
         for i, SFHist in enumerate(SFHists):
-#            if 0 == i:
-            SFHist.SetMaximum(8)
-            SFHist.SetMinimum(-4)
-            SFHist.SetTitle("SF")
-            SFHist.SetLineColor(COLORS[SFCount])
-            if (0 == i) and (0 == SFCount):
+            if 0 == i:
                 SFHist.Draw("AP")
             else:
                 SFHist.Draw("P")
@@ -818,8 +859,7 @@ if __name__ == "__main__":
 
         th1ds = []
         for i, SFHist in enumerate(SFHists):
-#            h = ROOT.TH1D("", titles[groupCount] + " SF;FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
-            h = ROOT.TH1D("", "SF;FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
+            h = ROOT.TH1D("", titles[groupCount] + " SF;FatJet p_{T} [GeV];Data/MC", *BINNING_FOR_TH1D)
             x = ROOT.Double()
             y = ROOT.Double()
             for binCount in range(N_BINS):
@@ -827,48 +867,16 @@ if __name__ == "__main__":
                 h.SetBinContent(binCount+1, y)
             h.SetLineWidth(2)
 #            h.SetAxisRange(0,1,"Y")
-#            h.SetLineColor(COLORS[i])
-            h.SetLineColor(COLORS[SFCount])
+            h.SetLineColor(COLORS[i])
             th1ds.append(h)
         for h in th1ds:
             h.Draw("hist same")
-        
-        print SFLegs[SFCount].GetEntry()
-        print SFLegs[SFCount].GetNRows()
-#        SFLegs[SFCount].Draw()
+        SFLegs[SFCount].Draw()
         one = yEqualsOne(min(BINNING), max(BINNING))
-#        one.Draw("hist same")
-        if not (str(SFincs[SFCount][0].down)[:5] == str(SFincs[SFCount][0].up)[:5]):
-            print "UP AND DOWN NOT EQUAL FOR SFS"
-            print str(SFincs[SFCount][0].down)[:5]
-            print str(SFincs[SFCount][0].up)[:5]
-#            sys.exit()
-        tts.append(th1ds[0])
-        print th1ds[0]
-        print bb[SFCount]
+        one.Draw("hist same")
+
 #        print("Saving {} \n".format(savePath + SFPngNames[SFCount] + "SF.png"))
-#        can.SaveAs(savePath + SFPngNames[SFCount] + "SF.png")
-    for i in range(3):
-        print SFincs[i][0]
-#        legSF.AddEntry(tts[i], bb[i] + ": " + str(SFincs[i][0].central)[:5] + " #pm " + str(SFincs[i][0].up)[:5], 'l')
-        legSF.AddEntry(tts[i], bb[i] + ": " + str(SFincs[i][0].central)[:5] + " + " + str(SFincs[i][0].up)[:5] + " - " + str(SFincs[i][0].down)[:5], 'l')
-    legSF.Draw()
-    can.SaveAs(savePath + "SFs.png")
-    can.SaveAs(savePath + "SFs.pdf")
-
-
-
-    sys.exit()
-
-
-
-    allMass = 0
-    allspecific = 1
-    drawSig(sigslow , sigsinclow , allMass    , "150 > mT > 50", "signal_all_mass_low_mistag")
-    drawSig(sigslow , sigsinclow , allspecific, "150 > mT > 50", "signal_all_low_mistag")
-    drawSig(sigshigh, sigsinchigh, allMass    , "mT > 150"     , "signal_all_mass_high_mistag")
-    drawSig(sigshigh, sigsinchigh, allspecific, "mT > 150"     , "signal_all_high_mistag")
-
+        can.SaveAs(savePath + SFPngNames[SFCount] + "SF.png")
     
     signalSFs = generateSignalSFs("deepak8v2_bbvslight.csv", options)    
     for signalSFCount, signalSF in enumerate(signalSFs):
