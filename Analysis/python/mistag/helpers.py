@@ -17,6 +17,8 @@ def pVars():
     print SM_WH
     print GEN_H
 
+def appendToPath(path, directory):
+    return path + "/" + directory + "/"
 
 def printNewLines(nTimes = 0):
     for i in range(nTimes):
@@ -32,27 +34,26 @@ def printDashes(nDashes = 0):
 # Add command line options
 def addCmdlineOptions():
     parser = OptionParser()
-    parser.add_option("--combineYears", dest = "combineYears", default = False, action = "store_true", help = "Combine 2016, 2017, and 2018?")
-    parser.add_option("--combineJets" , dest = "combineJets" , default = False, action = "store_true", help = "Combine 2 and 3 jet selections?")
-#    parser.add_option("--combineBTags", dest = "combineBTags", default = False, action = "store_true", help = "Combine 0, 1, and 2 b-tagged selections?")
-#    parser.add_option("--combineBkgs" , dest = "combineBkgs" , default = False, action = "store_true", help = "Combine all backgrounds?")
-    parser.add_option("--SMWH"        , dest = "SMWH"        , default = False, action = "store_true", help = "Use root files with SM WH background?")
-    parser.add_option("--GenH"        , dest = "GenH"        , default = False, action = "store_true", help = "Use only Fat Jets with Gen H's inside?")
-    parser.add_option("--variable"    , dest = "variable"    , default = "mt" , action = "store"     , help = "Checking for mT or mCT dependence?")
+    parser.add_option("--combineYears", dest = "combineYears", default = False      , action = "store_true", help = "Combine 2016, 2017, and 2018?")
+    parser.add_option("--combineJets" , dest = "combineJets" , default = False      , action = "store_true", help = "Combine 2 and 3 jet selections?")
+    parser.add_option("--combineBTags", dest = "combineBTags", default = False      , action = "store_true", help = "Combine 0, 1, and 2 b-tagged selections?")
+    parser.add_option("--combineBkgs" , dest = "combineBkgs" , default = False      , action = "store_true", help = "Combine all backgrounds?")
+    parser.add_option("--SMWH"        , dest = "SMWH"        , default = False      , action = "store_true", help = "Use root files with SM WH background?")
+    parser.add_option("--GenH"        , dest = "GenH"        , default = False      , action = "store_true", help = "Use only Fat Jets with Gen H's inside?")
+    parser.add_option("--variable"    , dest = "variable"    , default = "mT"       , action = "store"     , help = "Checking for mT or mCT dependence?")
+    parser.add_option("--plotVariable", dest = "plotVariable", default = "FatJet_pT", action = "store"     , help = "What x-axis variable to plot against?")
+    parser.add_option("--threshold"   , dest = "threshold"   , default = "150"      , action = "store"     , help = "What is the threshold for this signal/control region variable?")
     return parser
 
-def initialize(options):
-    if options.SMWH:
-        SM_WH = "/SM_WH/"
-    if options.GenH:
-        GEN_H = "/Gen_H/"
-
 # If oldList = ["a","b"] and selection = ["1","3","4"], newList = ["a*1","b*1","a*3","b*3","a*4","b*4"]
-def expandList(oldList, selection):
+def expandList(oldList, selection, separation = True):
     newList = []
     for sel in selection:
         for oldElem in oldList:
-            newList.append(oldElem + "*" + sel)
+            if separation:
+                newList.append(oldElem + "*" + sel)
+            else:
+                newList.append(oldElem + sel)
     return newList
 
 def getFiles(options, paths, printInfo = False):
@@ -85,6 +86,16 @@ def generateGrouping(options, printInfo = False):
         grouping = expandList(grouping, JETS)
     else: 
         grouping = expandList(grouping, ["ngoodjetsge"])
+    # Fix. Takes care of mt or mct. Could be more robust
+    if "mt" == options.variable.lower():
+        grouping = expandList(grouping, ["mt_met_lep"]) # Fix. Use either mt or mt_met_lep not either or
+    else:
+        grouping = expandList(grouping, ["mct"])
+    # Fix.
+    if "150" == options.threshold.lower():
+        grouping = expandList(grouping, ["g150", "l150"], separation = False)
+    else:
+        grouping = expandList(grouping, ["g200", "l200"], separation = False)
     # Takes care of using Gen-H fat jets or any fat jet
     if not options.GenH:
         grouping = expandList(grouping, BTAGS)
@@ -203,15 +214,15 @@ def generateOutNames(grouping, printInfo = False):
         printNewLines(nTimes = 5)
     return outNames
             
-def copyHist(hist, binning):
-    yourCopy = ROOT.TH1D("", "", binning)
-    for binCount in hist.GetNbinsX():
+def copyHist(hist):
+    yourCopy = ROOT.TH1D()
+    for binCount in range(hist.GetNbinsX()):
         yourCopy.SetBinContent(binCount+1, hist.GetBinContent(binCount+1))
         yourCopy.SetBinError(binCount+1, hist.GetBinError(binCount+1))
     return yourCopy
 
 # Extracts the idx-th histogram from fileName
-def getHistFromFile(fileName, idx, binning):
+def getHistFromFile(fileName, idx):
     f = ROOT.TFile(fileName)
     assert not f.IsZombie()
     f.cd()
@@ -227,12 +238,11 @@ def getHistFromFile(fileName, idx, binning):
     hist = it.Next()
     for i in range(idx-1):
         hist = it.Next()
-    return copyHist(hist, binning)
+    return copyHist(hist)
 
 # Fix. Maybe this function should come before all the generateMistag stuff in generateMistags (notice the 's'). Maybe this could somehow also utilize copyHist, but that might be too confusing
-def combineHistBins(fileName, idx, totalNBins, binning):
-    fileHist = getHistFromFile(fileName, idx, binning)
-    yourHist = ROOT.TH1D("", "", binning)
+def combineHistBins(fileHist, idx, totalNBins, binning):
+    yourHist = ROOT.TH1D("", "", *binning)
     for binCount in range(totalNBins):
         if (binCount+1) == totalNBins:
             err = ROOT.Double()
@@ -245,7 +255,7 @@ def combineHistBins(fileName, idx, totalNBins, binning):
 
 # Fix. Clones TGraphAsymmErrors. However, there might be a built in function already...
 def copyGraph(graph):
-    yourCopy = ROOT.TGraphAsymmErorrs(graph.GetN())
+    yourCopy = ROOT.TGraphAsymmErrors(graph.GetN())
     x = ROOT.Double()
     y = ROOT.Double()
     for bin in range(graph.GetN()):
@@ -263,37 +273,40 @@ def extractAfFromAsymmBin(asymmGraph, bin):
     up = asymmGraph.GetErrorYhigh(bin)
     return af(y, up, down)    
 
-def generateMistag(passed, total, idx, totalNBins, title, color):
-    passedHist = combineHistBins(passed, idx, totalNBins)
-    totalHist = combineHistBins(total, idx, totalNBins)
-    passedInclusiveHist = combineHistBins(passed, idx, 1)
-    totalInclusiveHist = combineHistBins(total, idx, 1)
+def generateMistag(passedFile, totalFile, idx, totalNBins, binning, title, color):
+    passedFileHist = getHistFromFile(passedFile, idx)
+    totalFileHist = getHistFromFile(totalFile, idx)
+    passedHist = combineHistBins(passedFileHist, idx, totalNBins, binning)
+    totalHist = combineHistBins(totalFileHist, idx, totalNBins, binning)
+    passedInclusiveHist = combineHistBins(passedFileHist, idx, 1, binning)
+    totalInclusiveHist = combineHistBins(totalFileHist, idx, 1, binning)
     if ROOT.TEfficiency.CheckConsistency(passedHist, totalHist) and ROOT.TEfficiency.CheckConsistency(passedInclusiveHist, totalInclusiveHist):
         teff = ROOT.TEfficiency(passedHist, totalHist)
+        teff.Draw() # Fix. I did not have to call this in the old code, but now I do...?
         teff.Paint("") # Fix. Is this necessary?
         graph = copyGraph(teff.GetPaintedGraph())
         inclusiveTeff = ROOT.TEfficiency(passedInclusiveHist, totalInclusiveHist)
         inclusiveTeff.Paint("") # Fix. Is this necessary?
         return graph, extractAfFromAsymmBin(inclusiveTeff.GetPaintedGraph(), 0)
-  else:
+    else:
       print "ERROR: inconsistent!\n{}\n{}".format(passed, total)
       sys.exit()
 
-def generateMistags(fileGroup, title, idexs, totalNBins, labels, skipIdexs = []):
+def generateMistags(fileGroup, title, idexs, totalNBins, binning, labels, skipIdexs = []):
     if 0 != len(skipIdexs):
         print "You are skipping indices. Have you shifted (if necessary) the other indices to compensate?"
     # fileGroup always has two files
-    passed = sorted(filegroup[1])
-    total = sorted(filegroup[0])
+    passedFile = sorted(fileGroup)[1]
+    totalFile = sorted(fileGroup)[0]
     graphs = []
     inclusives = []
     for idxCount, idx in enumerate(idexs):
-        if idx in supressIdexs:
+        if idx in skipIdexs:
             continue # Skip indices that user wants to skip
         if len(idexs) == (idxCount+1):
             if isSignalRegion(fileGroup[0]): # any index (that exists) will work
                 continue # Signal region does not have data
-        graph, inclusive = generateMistag(passed, total, idx, title, COLORS[idxCount])
+        graph, inclusive = generateMistag(passedFile, totalFile, idx, totalNBins, binning, title, COLORS[idxCount])
         graphs.append(graph)
         inclusives.append(inclusive)
     return graphs, inclusives
@@ -307,33 +320,70 @@ def generateLegend(xleft, ydown, xright, yup, plots, inclusives, labels):
             asymmetryExists = True
             break
     for plotCount, plot in enumerate(plots):
-        leg.AddEntry(graph, labels[plotCount], 'l')
+        leg.AddEntry(plot, labels[plotCount], 'l')
         if asymmetryExists:
-            leg.AddEntry(None, "inclusive: " + str(inclusives[plotCount].central)[:5] + " + " str(inclusives[plotCount].up)[:5] + " - " + str(inclusives.down)[:5], '')
+            leg.AddEntry(None, "inclusive: " + str(inclusives[plotCount].central)[:5] + " + " + str(inclusives[plotCount].up)[:5] + " - " + str(inclusives.down)[:5], '')
         else: 
-            leg.AddEntry(None, "inclusive: " + str(inclusives[plotCount].central)[:5] + " #pm " str(inclusives[plotCount].up)[:5], '')
+            leg.AddEntry(None, "inclusive: " + str(inclusives[plotCount].central)[:5] + " #pm " + str(inclusives[plotCount].up)[:5], '')
     return leg
             
-#def convertAsymmToHist():
-#
-#
+def convertAsymmToHist(graph, binning):
+    x = ROOT.Double()
+    y = ROOT.Double()
+    hist = ROOT.TH1D("", "", *binning)
+    for binCount in range(graph.GetN()):
+        graph.GetPoint(binCount, x, y)
+        hist.SetBinContent(binCount + 1, y)
+        if graph.GetErrorYhigh(binCount) != graph.GetErrorYlow(binCount):
+            print("Asymmetrical errors encountered while converting asymmetrical graph to 1D histogram. Exiting")
+            sys.exit()
+        hist.SetBinError(binCount + 1, graph.GetErrorYhigh(binCount))
+    return hist
+
+# Fix. Write this
 #def convertHistToAsymm():
-#
-#
+
+def calcAsymmSF(num, den):
+    if 0 == den.central:
+        return af(0,0,0)
+    else:
+        return num/den
+
+def generateSFs(graphs, title, inclusives):
+    dataGraph = graphs[-1]
+    dataInclusive = inclusives[-1]
+    SFGraphs = []
+    SFInclusives = []
+    for graphCount, graph in enumerate(graphs):
+        if len(graphs) == (graphCount+1):
+            continue # obviously we don't calculate data/data
+        SFGraph =  ROOT.TGraphAsymmErrors(graph.GetN())
+        for binCount in range(graph.GetN()):
+            SF = calcAsymmSF(extractAfFromAsymmBin(graph, binCount), extractAfFromAsymmBin(dataGraph, binCount))
+            x = ROOT.Double()
+            y = ROOT.Double()
+            graph.GetPoint(binCount, x, y)
+            SFGraph.SetPoint(binCount, x, SF.central)
+            SFGraph.SetPointError(binCount, 0, 0, SF.down, SF.up)
+        SFGraphs.append(SFGraph)
+        SFInclusives.append(calcAsymmSF(inclusives[graphCount], dataInclusive))
+    return SFGraphs, SFInclusives
+
+
 def setHistProperties(hist, name = None, title = None, xTitle = None, yTitle = None, lineWidth = None, lineColor = None):
     if not (None == name):
-        hist.SetName(name):
+        hist.SetName(name)
     if not (None == title):
         hist.SetTitle(title)
     if not (None == xTitle):
         hist.SetXTitle(xTitle)
     if not (None == yTitle):
         hist.SetYTitle(yTitle)
-    if not (None = lineWidth):
+    if not (None == lineWidth):
         hist.SetLineWidth(lineWidth)
-    if not (None = lineColor):
+    if not (None == lineColor):
         hist.SetLineColor(lineColor)
-    return hist
+        return hist
 
 def setAsymmProperties(asymmGraph, name = None, title = None, xTitle = None, yTitle = None, lineWidth = None, lineColor = None, yOffset = None, yMin = None, yMax = None):
     if not (None == name):
@@ -356,23 +406,23 @@ def setAsymmProperties(asymmGraph, name = None, title = None, xTitle = None, yTi
         asymmGraph.SetMaximum(yMax)
     return asymmGraph
 
-def isWhatever(fileName, someSubString):
-    if (someSubString in fileName):
-        return true
+def checkForSubstring(fileName, someSubstring):
+    if (someSubstring in fileName):
+        return True
     else:
         return False
 
-def isSR(fileName):
-    return isWhatever(fileName, )
+def isSignalRegion(fileName):
+    return checkForSubstring(fileName, "mt_met_lepg150") # fix. This is of course not the only thing that implies we are in the signal region. Ex: mctg200 also counts
 
 def is2016(fileName):
-    return isWhatever(fileName, "2016")
+    return checkForSubstring(fileName, "2016")
 
 def is2017(fileName):
-    return isWhatever(fileName, "2017")
+    return checkForSubstring(fileName, "2017")
 
 def is2018(fileName):
-    return isWhatever(fileName, "2018")
+    return checkForSubstring(fileName, "2018")
 
 def yEqualsOne(xmin, xmax):
     binning = [xmin, xmax]
