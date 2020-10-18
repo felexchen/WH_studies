@@ -48,11 +48,19 @@ REGIONS = [SR, CR]
 
 # This order follows the cxx plotting script
 BKG_IDX = 1
-SIGNAL_750_1_FAST = 7
-SIGNAL_350_100_FAST = 8
-SIGNAL_750_1_FULL = 9
-SIGNAL_350_100_FULL = 10
-DATA_IDX = 11
+# 9/23/2020 I have literally no idea why this is 7-11 and not 3-7
+#SIGNAL_750_1_FAST = 7
+#SIGNAL_350_100_FAST = 8
+#SIGNAL_750_1_FULL = 9
+#SIGNAL_350_100_FULL = 10
+#DATA_IDX = 11
+SIGNAL_750_1_FAST = 3
+SIGNAL_350_100_FAST = 4
+SIGNAL_750_1_FULL = 5
+SIGNAL_350_100_FULL = 6
+DATA_IDX = 7
+
+
 #if not ("" == SM_WH):
 #    # 1 more bkg means every non-bkg shifts down 1
 #    SIGNAL_DELTA_250 += 1
@@ -307,7 +315,7 @@ def combineBins(fileName, idx, inclusive = False):
     f.Close()
     topPad = canvas.FindObject("mytoppad")
     topPadList = topPad.GetListOfPrimitives()
-    #topPadList.ls()
+#    topPadList.ls()
     it = topPadList.begin()
     hist = it.Next()
     for i in range(idx-1):
@@ -430,14 +438,28 @@ def histsAndLegFromGroup(fileGroup, title):#, options):
             if isSR(fileGroup[0]): # any index will work
 #                print "FOUND SR"
                 continue
-        if ((SIGNAL_750_1_FULL == idx) or (SIGNAL_350_100_FULL == idx)):
-            if is2017(fileGroup[0]): # any index will work
-                continue # 2017 does hot have full
+
+
+# for no full
+#        if ((SIGNAL_750_1_FULL == idx) or (SIGNAL_350_100_FULL == idx)):
+#            if is2017(fileGroup[0]): # any index will work
+#                continue # 2017 does hot have full
+
+
+
 #        print("idx: {}".format(idx))
-        if is2017(fileGroup[0]) and DATA_IDX == idx:
-            h, mistagInclusive = generateMistagHistAndInclusive(passed, total, 9, title, COLORS[i]) 
-        else:
-            h, mistagInclusive = generateMistagHistAndInclusive(passed, total, idx, title, COLORS[i]) 
+
+# for no full
+#        if is2017(fileGroup[0]) and DATA_IDX == idx:
+#            h, mistagInclusive = generateMistagHistAndInclusive(passed, total, 9, title, COLORS[i]) 
+#        else:
+#            h, mistagInclusive = generateMistagHistAndInclusive(passed, total, idx, title, COLORS[i]) 
+
+
+        print idx
+        h, mistagInclusive = generateMistagHistAndInclusive(passed, total, idx, title, COLORS[i]) 
+
+
         mistagInclusives.append(mistagInclusive)
         hists.append(h)
         leg.AddEntry(h, COMBINATION_STR[i], 'l')
@@ -664,37 +686,38 @@ def drawSig(graphs, inclusives, title, pngName, year, mT):
     leg.Draw()
     can.SaveAs(savePath + pngName + ".png")    
 
-    if not ("2017" in pngName):
+#    if not ("2017" in pngName):
+    for th in th1ds:
+        th.SetTitle("das")
+    print th1ds
+    plotting.draw(
+        Plot.fromHisto(name = pngName + "_ratio", histos = [ [th1ds[0]], [th1ds[1]], [th1ds[2]], [th1ds[3]] ], texX = "FatJet p_{T} (GeV)", texY = "Tagging Efficiencies"),
+        plot_directory = "./plots/mT/ANsignal/FatJet_pT/Gen_H/combJetscombBkgs/",
+        logX = False, logY = False, sorting = False,
+        yRange = (0,1),
+        legend = (0.4, 0.4, 0.9, 0.7),
+        drawObjects = drawObjects(year, mT),
+        scaling = {1:0},
+        ratio = {'histos': [(2,0), (3,1)], 'texY': 'Full / Fast', 'yRange': (0.6, 1.4)},
+        title = "das",
+        ) 
+# for no full
+#    else:
 #        for th in th1ds:
 #            th.SetTitle("das")
-        print th1ds
-        plotting.draw(
-            Plot.fromHisto(name = pngName + "_ratio", histos = [ [th1ds[0]], [th1ds[1]], [th1ds[2]], [th1ds[3]] ], texX = "FatJet p_{T} (GeV)", texY = "Tagging Efficiencies"),
-            plot_directory = "./plots/mT/ANsignal/FatJet_pT/Gen_H/combJetscombBkgs/",
-            logX = False, logY = False, sorting = False,
-            yRange = (0,1),
-            legend = (0.4, 0.4, 0.9, 0.7),
-            drawObjects = drawObjects(year, mT),
-            scaling = {1:0},
-            ratio = {'histos': [(2,0), (3,1)], 'texY': 'Full / Fast', 'yRange': (0.6, 1.4)},
-            title = "das",
-            ) 
-    else:
-        for th in th1ds:
-            th.SetTitle("das")
-        print th1ds
-        plotting.draw(
-            Plot.fromHisto(name = pngName + "_ratio", histos = [ [th1ds[0]], [th1ds[1]]], texX = "FatJet p_{T} (GeV)", texY = "Tagging Efficiencies"),
-            plot_directory = "./plots/mT/ANsignal/FatJet_pT/Gen_H/combJetscombBkgs/",
-            logX = False, logY = False, sorting = False,
-            yRange = (0,1),
-            legend = (0.4, 0.4, 0.9, 0.7),
-            drawObjects = drawObjects(year, mT),
-            scaling = {1:0},
-            title = "das",
-#            ratio = {'histos': [(2,0), (3,1)], 'texY': 'Full / Fast'},
-            ) 
-    
+#        print th1ds
+#        plotting.draw(
+#            Plot.fromHisto(name = pngName + "_ratio", histos = [ [th1ds[0]], [th1ds[1]]], texX = "FatJet p_{T} (GeV)", texY = "Tagging Efficiencies"),
+#            plot_directory = "./plots/mT/ANsignal/FatJet_pT/Gen_H/combJetscombBkgs/",
+#            logX = False, logY = False, sorting = False,
+#            yRange = (0,1),
+#            legend = (0.4, 0.4, 0.9, 0.7),
+#            drawObjects = drawObjects(year, mT),
+#            scaling = {1:0},
+#            title = "das",
+#            #            ratio = {'histos': [(2,0), (3,1)], 'texY': 'Full / Fast'},
+#            ) 
+        
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if __name__ == "__main__":
@@ -746,15 +769,19 @@ if __name__ == "__main__":
         #print hists
         sig.append(hists[1])
         sig.append(hists[2])
-        if not is2017(fileGroup[0]):
-            sig.append(hists[3])
-            sig.append(hists[4])
+#        if not is2017(fileGroup[0]):
+#            sig.append(hists[3])
+#            sig.append(hists[4])
+        sig.append(hists[3])
+        sig.append(hists[4])
 #        print sig
         siginc.append(mistagInclusive[1])
         siginc.append(mistagInclusive[2])
-        if not is2017(fileGroup[0]):
-            siginc.append(mistagInclusive[3])
-            siginc.append(mistagInclusive[4])
+#        if not is2017(fileGroup[0]):
+#            siginc.append(mistagInclusive[3])
+#            siginc.append(mistagInclusive[4])
+        siginc.append(mistagInclusive[3])
+        siginc.append(mistagInclusive[4])
 
         if not isSR(fileGroup[0]):
             sigslow.append(sig)

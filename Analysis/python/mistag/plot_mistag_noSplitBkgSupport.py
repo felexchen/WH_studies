@@ -277,7 +277,7 @@ def combineBins(fileName, idx, inclusive = False):
     tempCanvas = f.Get(canvasName)
     canvas = tempCanvas.Clone()
     f.Close()
-    topPad = canvas.FindObject("mytoppad")
+    topPad = canvas.FindObject("mytoppad") # This is an unfortunate line. This requires the changing of the pad naming scheme in wh_draw's src/core/hist1d.cpp. Finding the pad with the old numbering scheme would be more difficult.
     topPadList = topPad.GetListOfPrimitives()
     #topPadList.ls()
     it = topPadList.begin()
